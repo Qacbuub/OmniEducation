@@ -32,14 +32,22 @@ if not exist ".git" (
 git add -A
 if errorlevel 1 goto fail
 
+set "MSG=OmniEducation: school and university management platform"
+git rev-parse --verify HEAD >nul 2>nul
+if not errorlevel 1 (
+  set "MSG=Update"
+  if exist "commit-message.txt" set /p MSG=<commit-message.txt
+)
+
 git diff --cached --quiet
 if errorlevel 1 (
-  git commit -q -m "OmniEducation: school and university management platform" -m "React frontend, Django REST backend, PostgreSQL, Nginx and Docker deployment, tests, seed data and documentation." -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" -m "Claude-Session: https://claude.ai/code/session_01TCc6M1FYiN4WJiVnd441nL"
+  call git commit -q -m "%%MSG%%" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" -m "Claude-Session: https://claude.ai/code/session_01TCc6M1FYiN4WJiVnd441nL"
   if errorlevel 1 goto fail
-  echo Commit created.
+  echo Commit created: %MSG%
 ) else (
   echo Nothing new to commit.
 )
+if exist "commit-message.txt" del "commit-message.txt"
 
 git remote get-url origin >nul 2>nul
 if errorlevel 1 (

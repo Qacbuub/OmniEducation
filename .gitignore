@@ -14,3 +14,6 @@ backend/staticfiles/
 backend/.seeded-*
 **/__pycache__/
 deploy/certs/
+deploy/server-nginx/
+docker-compose.server.yml
+commit-message.txt

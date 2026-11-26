@@ -64,7 +64,25 @@ Data lives in three named volumes: `pgdata` (database), `media` (uploads), `stat
 | `EMAIL_BACKEND` (+ SMTP settings) | `console` prints emails to the log; use SMTP for real email |
 | `SHOW_INVITE_LINKS` | show invitation links on screen (only while emails are not really sent) |
 
-### Turning on HTTPS
+### On a cloud server, in one step (Oracle Cloud, DigitalOcean or any Ubuntu 22.04/24.04 server)
+
+`deploy/server-setup.sh` does everything on a fresh Ubuntu server: adds swap on 1 GB machines, installs Docker and
+Certbot, opens ports 80/443 in the server firewall, gets a free Let's Encrypt certificate, writes `.env.prod` with
+new random secrets, and starts PostgreSQL, Django and Nginx with the demo data.
+
+- **When creating the server:** paste [`deploy/cloud-init.sh`](../deploy/cloud-init.sh) into the *cloud-init
+  script* (Oracle) or *User data* (DigitalOcean) box. The site is ready 10-20 minutes after the server starts;
+  progress is in `/var/log/omniedu-setup.log`.
+- **On an existing server:** `git clone https://github.com/Qacbuub/OmniEducation.git /opt/omniedu` then
+  `sudo bash /opt/omniedu/deploy/server-setup.sh`.
+- **Updating:** `cd /opt/omniedu && git pull && sudo bash deploy/server-setup.sh` (secrets and data are kept).
+
+Without a domain the address is the server's IP with dashes plus `.sslip.io`, for example
+`https://203-0-113-7.sslip.io` (a free DNS name that points at that IP). With your own domain, point its DNS at the
+server and run the script with `DOMAIN=demo.example.com`. On Oracle Cloud, also allow TCP 80 and 443 in the
+subnet's security list (the cloud firewall); the script opens them inside the server.
+
+### Turning on HTTPS by hand
 
 1. Put the certificate files in `deploy/certs/` as `fullchain.pem` and `privkey.pem`
    (for example from Let's Encrypt / certbot).
@@ -88,6 +106,8 @@ With HTTPS on, Django also sends HSTS and marks cookies secure. Nginx adds `X-Co
 | `frontend/Dockerfile` | builds the React app, then serves it with Nginx |
 | `deploy/nginx/omniedu.conf` | Nginx site: HTTP server, commented HTTPS server, login rate limit |
 | `deploy/nginx/omniedu-app.inc` | routes shared by both servers (SPA fallback, `/api`, `/static`, logos, caching) |
+| `deploy/server-setup.sh` | one-step setup/update of a Ubuntu server, with Let's Encrypt HTTPS |
+| `deploy/cloud-init.sh` | paste-in startup script for a new cloud server (runs `server-setup.sh`) |
 | `config/settings/prod.py` | production Django settings (DEBUG off, secure proxy headers, HSTS) |
 
 ---
