@@ -1,0 +1,62 @@
+/*
+ * OmniEducation design tokens
+ * Brand colours are sampled directly from the official OmniTeckno logo:
+ *   #00AEFF (brand blue), #000000 (black), #FFFFFF (white).
+ * Everything else is a tint/shade of those or a neutral/semantic UI colour.
+ */
+:root {
+  /* Brand */
+  --brand: #00aeff;            /* logo blue - fills, active states, charts */
+  --brand-hover: #33beff;
+  --brand-strong: #0077b3;     /* darker shade of brand blue for text/links on white (4.9:1) */
+  --brand-soft: #e6f7ff;       /* tint for selected rows, info backgrounds */
+  --on-brand: #000000;         /* text on brand blue: black = 8.5:1 contrast (white fails at 2.5:1) */
+  --black: #000000;
+  --white: #ffffff;
+
+  /* Dark chrome (sidebar, topbar on mobile, login panel) */
+  --chrome: #000000;
+  --chrome-raised: #111418;
+  --chrome-border: #1f242b;
+  --chrome-text: #ffffff;
+  --chrome-muted: #9aa4b2;
+
+  /* Neutrals (light content area) */
+  --bg: #f7f9fb;
+  --surface: #ffffff;
+  --border: #e3e8ef;
+  --border-strong: #cdd5df;
+  --text: #0b0f14;
+  --text-muted: #5b6573;       /* 6.0:1 on white */
+  --text-subtle: #8a94a3;
+
+  /* Semantic (status only - never used as brand colours) */
+  --success: #15803d;
+  --success-soft: #e8f6ee;
+  --warning: #b45309;
+  --warning-soft: #fdf3e4;
+  --danger: #c62828;
+  --danger-soft: #fdecec;
+
+  /* Typography */
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.875rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.125rem;
+  --fs-xl: 1.5rem;
+  --fs-2xl: 1.875rem;
+
+  /* Spacing, radius, elevation */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-8: 32px;
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 2px rgba(11, 15, 20, 0.06);
+  --shadow: 0 4px 16px rgba(11, 15, 20, 0.08);
+  --focus-ring: 0 0 0 3px rgba(0, 174, 255, 0.45);
+
+  --sidebar-w: 260px;
+  --topbar-h: 64px;
+}

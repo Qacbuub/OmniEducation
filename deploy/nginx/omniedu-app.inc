@@ -1,0 +1,52 @@
+# Shared by the HTTP and HTTPS server blocks in omniedu.conf.
+root /usr/share/nginx/html;
+client_max_body_size 12m;          # uploads: photos up to 3 MB, documents up to 10 MB
+server_tokens off;
+
+include /etc/nginx/conf.d/omniedu-headers.inc;
+
+gzip on;
+gzip_types text/css application/javascript application/json image/svg+xml;
+
+location = /api/auth/login/ {
+    limit_req zone=omniedu_login burst=5 nodelay;
+    include /etc/nginx/conf.d/omniedu-proxy.inc;
+}
+
+location /api/ {
+    include /etc/nginx/conf.d/omniedu-proxy.inc;
+}
+
+location /admin/ {
+    include /etc/nginx/conf.d/omniedu-proxy.inc;
+}
+
+location /static/ {
+    alias /srv/static/;
+    expires 7d;
+    access_log off;
+}
+
+location /media/tenant-logos/ {
+    alias /srv/media/tenant-logos/;
+    expires 1d;
+}
+
+location /media/ {
+    return 404;  # private files go through the API only
+}
+
+# Built JS/CSS have content hashes in their names: cache them for a long time.
+location /assets/ {
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+    include /etc/nginx/conf.d/omniedu-headers.inc;  # a location's add_header replaces the server's
+    access_log off;
+}
+
+# Every other path is a React route: serve index.html and let the app handle it.
+location / {
+    try_files $uri /index.html;
+    add_header Cache-Control "no-cache";
+    include /etc/nginx/conf.d/omniedu-headers.inc;
+}

@@ -1,0 +1,16 @@
+.DS_Store
+.idea/
+.vscode/
+
+# Local data, secrets and build output
+.env
+.env.prod
+**/.venv/
+**/node_modules/
+frontend/dist/
+backend/db.sqlite3
+backend/media/
+backend/staticfiles/
+backend/.seeded-*
+**/__pycache__/
+deploy/certs/
