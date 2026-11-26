@@ -27,6 +27,9 @@ There are two ways to run it.
 
 Needs Docker Desktop (Windows/macOS) or Docker Engine + Compose (Linux).
 
+On Windows, **`docker-local.bat`** does all of the steps below: it creates `.env.prod` with random secrets (and
+uses port 8080 if port 80 is taken), runs `docker compose up -d --build`, waits for the API and opens the site.
+
 ```bash
 cp .env.prod.example .env.prod        # Windows: copy .env.prod.example .env.prod
 # edit .env.prod: set POSTGRES_PASSWORD and DJANGO_SECRET_KEY (see the comments in the file)

@@ -13,6 +13,12 @@ Each institution is an isolated tenant with its own branding, academic structure
 ## Quick start
 
 ### Option A – one command with Docker (Nginx + Gunicorn + PostgreSQL)
+Needs only [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker Engine on Linux).
+
+**Windows:** double-click **`docker-local.bat`**. It creates `.env.prod` with random secrets, builds and starts
+everything (5-15 minutes the first time), waits until the system answers and opens it in the browser.
+
+**Any system:**
 ```bash
 cp .env.prod.example .env.prod     # then set POSTGRES_PASSWORD and DJANGO_SECRET_KEY
 docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
