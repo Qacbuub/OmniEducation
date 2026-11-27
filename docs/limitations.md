@@ -42,7 +42,7 @@ would be needed to close it.
 
 | What | Status |
 |---|---|
-| Backend tests | 92 automated tests (pytest) pass on SQLite and on PostgreSQL 16: tenancy, permissions, workflows, money, grades, security, the public application. |
+| Backend tests | 95 automated tests (pytest) pass on SQLite and on PostgreSQL 16: tenancy, permissions, workflows, money, grades, security, the public application, lecture attendance and institution deletion. |
 | API smoke test | Every list endpoint opened as all 20 demo accounts on PostgreSQL: no server errors. |
 | Frontend | No automated UI test suite. Every screen was opened as every demo role in a browser with no API or console errors, and the main end-to-end flows were exercised by hand. A static checker verifies imports, exports and icons. |
 | Docker deployment | Verified on Windows with Docker Desktop: `docker-local.bat` builds and starts PostgreSQL, Django/Gunicorn and Nginx with the React build; sign-in, dashboards, the online application flow and the OpenAPI page work through Nginx. The cloud script (`deploy/server-setup.sh`, Let's Encrypt HTTPS) has not been run on a real server. |

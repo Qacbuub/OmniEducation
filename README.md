@@ -62,7 +62,7 @@ npm run dev                         # http://localhost:5173
 
 Tests (they create their own temporary database; on PostgreSQL the `omniedu` user needs CREATEDB):
 ```bash
-cd backend && pytest               # 92 tests, pass on SQLite and PostgreSQL 16+
+cd backend && pytest               # 95 tests, pass on SQLite and PostgreSQL 16+
 ```
 
 ## Documentation
@@ -97,6 +97,22 @@ Password for every account: **`Demo@1234`** (synthetic data only).
 | | Academic adviser | adviser@omniu.edu |
 | | Student | student@omniu.edu |
 | | Finance officer | finance@omniu.edu |
+
+## Screenshots
+
+Taken from the Docker deployment with the demo data (`docs/screenshots/`).
+
+| | |
+|---|---|
+| ![Principal dashboard: enrollment, attendance, fees, pass rate](docs/screenshots/01-school-principal-dashboard.png)<br>Principal dashboard: enrollment, attendance, fees, pass rate | ![Admission review with workflow steps and full applicant details](docs/screenshots/02-school-admission-review.png)<br>Admission review with workflow steps and full applicant details |
+| ![Daily attendance register (class teacher)](docs/screenshots/03-school-attendance-register.png)<br>Daily attendance register (class teacher) | ![Attendance summary per pupil for a term](docs/screenshots/04-school-attendance-summary.png)<br>Attendance summary per pupil for a term |
+| ![Marks entry with weighted assessments and the New exam button](docs/screenshots/05-school-marks-entry.png)<br>Marks entry with weighted assessments and the New exam button | ![Published report cards with positions and remarks](docs/screenshots/06-school-report-cards.png)<br>Published report cards with positions and remarks |
+| ![Guardian portal with linked children, reports and fee balances](docs/screenshots/07-school-parent-portal.png)<br>Guardian portal with linked children, reports and fee balances | ![Fee arrears report with ageing](docs/screenshots/08-school-fee-arrears.png)<br>Fee arrears report with ageing |
+| ![Registrar dashboard: enrollment by program, GPA distribution](docs/screenshots/09-university-registrar-dashboard.png)<br>Registrar dashboard: enrollment by program, GPA distribution | ![Student course registration with credit load and add/drop window](docs/screenshots/10-university-course-registration.png)<br>Student course registration with credit load and add/drop window |
+| ![Lecturer gradebook with weighted assessments](docs/screenshots/11-university-gradebook.png)<br>Lecturer gradebook with weighted assessments | ![Lecturer class attendance with attendance rates](docs/screenshots/12-university-class-attendance.png)<br>Lecturer class attendance with attendance rates |
+| ![Student's courses, marks so far and attendance](docs/screenshots/13-university-student-courses.png)<br>Student's courses, marks so far and attendance | ![Transcript with semester GPA and CGPA](docs/screenshots/14-university-transcript.png)<br>Transcript with semester GPA and CGPA |
+| ![Degree audit and graduation clearance](docs/screenshots/15-university-degree-audit.png)<br>Degree audit and graduation clearance | ![Grade moderation by the department head](docs/screenshots/16-university-grade-approvals.png)<br>Grade moderation by the department head |
+| ![Platform admin: institutions (tenants)](docs/screenshots/17-platform-institutions.png)<br>Platform admin: institutions (tenants) | ![Public online application (no account needed)](docs/screenshots/18-public-online-application.png)<br>Public online application (no account needed) |
 
 ## Online application (no account needed)
 Applicants open **`/apply`** (also linked from the sign-in page), choose a school or university and fill in the
@@ -146,4 +162,4 @@ logic separate from course/credit/semester/transcript logic, as the brief requir
 ## Status
 Done: shared foundation, the school (K-12) module, the university module, all frontend screens for every role,
 PostgreSQL support and the Nginx/Gunicorn Docker deployment.
-Next: screenshots and a demo walkthrough.
+Next: the recorded demo walkthrough.
