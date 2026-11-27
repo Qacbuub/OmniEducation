@@ -18,7 +18,7 @@ from django.dispatch import receiver
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
-from admissions.hooks import register_enrollment_handler, register_target_validator
+from admissions.hooks import register_enrollment_handler, register_target_options, register_target_validator
 from admissions.models import AcademicPeriod, Enrollment
 from core.exceptions import BusinessRuleViolation
 from people.scoping import register_student_scope
@@ -48,6 +48,11 @@ def validate_grade(tenant, target_id):
     if level is None:
         raise ValidationError({"target_id": ["Choose a grade level offered by this school."]})
     return level.name
+
+
+@register_target_options("school")
+def grade_options(tenant):
+    return [{"id": g.id, "name": g.name} for g in GradeLevel.objects.filter(tenant=tenant)]
 
 
 @register_enrollment_handler("school")

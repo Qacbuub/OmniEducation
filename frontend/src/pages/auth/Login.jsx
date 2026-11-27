@@ -80,6 +80,8 @@ export default function Login() {
           {submitting ? "Signing in…" : "Sign in"}
         </Button>
 
+        <p className="auth__apply">New applicant? <Link to="/apply">Apply online to a school or university</Link></p>
+
         <div className="demo-box" aria-label="Demo accounts">
           <div className="demo-box__title">Demo accounts · password <span className="mono">{DEMO_PASSWORD}</span></div>
           {DEMO_ACCOUNTS.map((g) => (

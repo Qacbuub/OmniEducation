@@ -7,6 +7,7 @@ import Login from "./pages/auth/Login";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
 import AcceptInvitation from "./pages/auth/AcceptInvitation";
+import { ApplicationStatus, ApplyForm, ApplyIndex } from "./pages/public/Apply";
 import PlatformDashboard from "./pages/platform/PlatformDashboard";
 import Institutions from "./pages/platform/Institutions";
 import InstitutionDetail from "./pages/platform/InstitutionDetail";
@@ -76,6 +77,11 @@ export default function App() {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/accept-invitation" element={<AcceptInvitation />} />
           </Route>
+
+          {/* Public online admission (no sign-in) */}
+          <Route path="/apply" element={<ApplyIndex />} />
+          <Route path="/apply/:slug" element={<ApplyForm />} />
+          <Route path="/apply/:slug/status" element={<ApplicationStatus />} />
 
           {/* Platform super admin */}
           <Route element={<RequireAuth mode={MODE.PLATFORM} />}>

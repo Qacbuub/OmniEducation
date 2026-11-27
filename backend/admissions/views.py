@@ -25,7 +25,7 @@ from people.models import Guardian, GuardianLink, Person, Student
 from people.scoping import visible_students
 from people.views import sniff_image
 
-from .hooks import ENROLLMENT_HANDLERS
+from .hooks import ENROLLMENT_HANDLERS, TARGET_OPTIONS
 from .models import AcademicPeriod, Application, Enrollment
 from .serializers import (
     AcademicPeriodSerializer,
@@ -56,6 +56,29 @@ class AcademicPeriodViewSet(TenantScopedViewSetMixin, viewsets.ModelViewSet):
 
 
 # ------------------------------------------------------------------ public online application
+def _open_tenants():
+    return Tenant.objects.exclude(status=Tenant.Status.SUSPENDED)
+
+
+def _public_institution(tenant, request):
+    logo = request.build_absolute_uri(tenant.logo.url) if tenant.logo else None
+    return {"name": tenant.name, "slug": tenant.slug, "type": tenant.type, "city": tenant.city,
+            "country": tenant.country, "contact_email": tenant.contact_email, "contact_phone": tenant.contact_phone,
+            "accent_color": tenant.accent_color, "logo": logo}
+
+
+class PublicInstitutionListView(APIView):
+    """Institutions accepting online applications: name, type and place only (no private data)."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [AnonRateThrottle]
+
+    def get(self, request):
+        return Response([{"name": t.name, "slug": t.slug, "type": t.type, "city": t.city, "country": t.country}
+                         for t in _open_tenants().order_by("name")])
+
+
 class PublicApplicationView(APIView):
     """Online application form for an institution (no login). Throttled per IP."""
 
@@ -64,14 +87,16 @@ class PublicApplicationView(APIView):
     throttle_classes = [AnonRateThrottle]
 
     def get_tenant(self, slug):
-        return get_object_or_404(Tenant.objects.exclude(status=Tenant.Status.SUSPENDED), slug=slug)
+        return get_object_or_404(_open_tenants(), slug=slug)
 
     def get(self, request, slug):
         tenant = self.get_tenant(slug)
         intakes = AcademicPeriod.objects.filter(tenant=tenant, end_date__gte=timezone.localdate()).exclude(
-            kind=AcademicPeriod.Kind.TERM)
-        return Response({"institution": tenant.name, "type": tenant.type,
-                         "intakes": [{"id": p.id, "name": p.name} for p in intakes]})
+            kind=AcademicPeriod.Kind.TERM).order_by("start_date")
+        options = TARGET_OPTIONS.get(tenant.type)
+        return Response({"institution": tenant.name, "type": tenant.type, **_public_institution(tenant, request),
+                         "intakes": [{"id": p.id, "name": p.name} for p in intakes],
+                         "options": options(tenant) if options else []})
 
     def post(self, request, slug):
         tenant = self.get_tenant(slug)
@@ -89,15 +114,79 @@ class PublicApplicationView(APIView):
                         status=status.HTTP_201_CREATED)
 
 
+def _public_status(app, request):
+    """What an applicant may see about their own application (the reference code is the secret)."""
+    return {"application_no": app.application_no, "status": app.status, "full_name": app.full_name,
+            "requested_level": app.requested_level, "submitted_at": app.submitted_at,
+            "document_count": app.documents.count(), "has_photo": bool(app.photo),
+            "can_upload": app.status in ("submitted", "under_review"),
+            "can_respond": app.status == Application.Status.OFFERED,
+            "institution": _public_institution(app.tenant, request)}
+
+
 class PublicApplicationStatusView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
     throttle_classes = [AnonRateThrottle]
 
     def get(self, request, slug, reference):
-        app = get_object_or_404(Application, tenant__slug=slug, reference_code=reference.upper())
-        return Response({"application_no": app.application_no, "status": app.status,
-                         "requested_level": app.requested_level})
+        app = get_object_or_404(Application.objects.select_related("tenant"), tenant__slug=slug,
+                                reference_code=reference.strip().upper())
+        return Response(_public_status(app, request))
+
+
+class PublicOfferResponseView(APIView):
+    """University applicants accept or decline their offer of admission with their reference code."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [AnonRateThrottle]
+
+    @transaction.atomic
+    def post(self, request, slug, reference):
+        app = get_object_or_404(Application.objects.select_for_update().select_related("tenant"),
+                                tenant__slug=slug, reference_code=reference.strip().upper())
+        decision = request.data.get("decision")
+        if decision not in ("accept", "decline"):
+            raise ValidationError({"decision": ["Choose accept or decline."]})
+        if app.status != Application.Status.OFFERED:
+            raise BusinessRuleViolation("There is no open offer on this application.", code="invalid_transition")
+        new = Application.Status.OFFER_ACCEPTED if decision == "accept" else Application.Status.OFFER_DECLINED
+        app.status = new
+        app.save()
+        log_event("application.status_changed", tenant=app.tenant, target=app,
+                  changes={"from": "offered", "to": new, "by": "applicant"})
+        verb = "accepted" if decision == "accept" else "declined"
+        notify_permission_holders(app.tenant, "admissions.manage", f"Offer {verb}",
+                                  f"{app.full_name} {verb} the offer for {app.requested_level}.", kind="admission",
+                                  link=f"/admissions/{app.id}")
+        return Response(_public_status(app, request))
+
+
+APPLICANT_DOCUMENT_KINDS = {Document.Kind.SUPPORTING, Document.Kind.BIRTH_CERTIFICATE,
+                            Document.Kind.PREVIOUS_RESULTS, Document.Kind.OTHER}
+
+
+class PublicApplicationPhotoView(APIView):
+    """Applicants add or replace their passport photo while the application is still being reviewed."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [AnonRateThrottle]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, slug, reference):
+        app = get_object_or_404(Application.objects.select_related("tenant"), tenant__slug=slug,
+                                reference_code=reference.strip().upper(), status__in=["submitted", "under_review"])
+        f = request.FILES.get("photo")
+        kind = sniff_image(f)
+        old = app.photo.name if app.photo else None
+        app.photo.save(f"photo.{kind}", f, save=False)
+        app.save(update_fields=["photo", "updated_at"])
+        if old:
+            app.photo.storage.delete(old)
+        log_event("application.photo_updated", tenant=app.tenant, target=app)
+        return Response(_public_status(app, request), status=status.HTTP_201_CREATED)
 
 
 class PublicApplicationDocumentView(APIView):
@@ -109,7 +198,7 @@ class PublicApplicationDocumentView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request, slug, reference):
-        app = get_object_or_404(Application, tenant__slug=slug, reference_code=reference.upper(),
+        app = get_object_or_404(Application, tenant__slug=slug, reference_code=reference.strip().upper(),
                                 status__in=["submitted", "under_review"])
         f = request.FILES.get("file")
         if not f:
@@ -118,7 +207,7 @@ class PublicApplicationDocumentView(APIView):
         if app.documents.count() >= 10:
             raise BusinessRuleViolation("An application can have at most 10 documents.", code="too_many_documents")
         kind = request.data.get("kind", Document.Kind.SUPPORTING)
-        if kind not in Document.Kind.values:
+        if kind not in APPLICANT_DOCUMENT_KINDS:  # official kinds (receipts, transcripts…) are staff-only
             kind = Document.Kind.SUPPORTING
         doc = Document.objects.create(tenant=app.tenant, application=app, kind=kind, file=f,
                                       title=request.data.get("title") or f.name, original_name=f.name, size=f.size)

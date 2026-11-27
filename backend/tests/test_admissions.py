@@ -166,3 +166,40 @@ def test_finance_admin_can_bill_custom_amount_at_enrolment(client_for, make_user
     assert r.status_code == 201
     inv = Invoice.objects.get(number=r.data["invoice"])
     assert inv.total == 8000 and [ln.description for ln in inv.lines.all()] == ["Registration fee", "Uniform"]
+
+
+def test_public_school_form_lists_grade_levels(anon, school):
+    from school.models import GradeLevel
+    g = GradeLevel.objects.create(tenant=school, name="Grade 1", order=1)
+    form = anon.get(f"/api/public/{school.slug}/apply/").data
+    assert form["institution"] == school.name and form["options"] == [{"id": g.id, "name": "Grade 1"}]
+    r = anon.post(f"/api/public/{school.slug}/apply/", {**APPLICANT, "target_id": g.id}, format="json")
+    assert r.status_code == 201
+    status = anon.get(f"/api/public/{school.slug}/applications/{r.data['reference_code']}/").data
+    assert status["requested_level"] == "Grade 1" and status["can_upload"] and not status["can_respond"]
+    assert anon.get(f"/api/public/{school.slug}/applications/NOPE123/").status_code == 404
+
+
+def test_applicant_adds_photo_and_documents_until_decided(anon, client_for, make_user, school, tmp_path, settings):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    from tests.test_people_photo import PNG
+    settings.MEDIA_ROOT = tmp_path
+    ref = anon.post(f"/api/public/{school.slug}/apply/", APPLICANT, format="json").data["reference_code"]
+    base = f"/api/public/{school.slug}/applications/{ref}/"
+    fake = SimpleUploadedFile("x.png", b"not an image", content_type="image/png")
+    assert anon.post(base + "photo/", {"photo": fake}, format="multipart").status_code == 400
+    ok = anon.post(base + "photo/", {"photo": SimpleUploadedFile("me.png", PNG, content_type="image/png")},
+                   format="multipart")
+    assert ok.status_code == 201 and ok.data["has_photo"] is True
+    # An applicant cannot label their upload as an official document such as a receipt.
+    doc = anon.post(base + "documents/", {"file": SimpleUploadedFile("r.pdf", b"%PDF-1.4"), "kind": "receipt"},
+                    format="multipart")
+    assert doc.status_code == 201
+    app = Application.objects.get(reference_code=ref)
+    assert app.documents.get().kind == "supporting"
+    admin = client_for(make_user("adm@s.edu", "inst_admin", school))
+    admin.post(f"/api/admissions/{app.id}/decide/", {"status": "rejected"}, format="json")
+    late = anon.post(base + "documents/", {"file": SimpleUploadedFile("late.pdf", b"%PDF-1.4")}, format="multipart")
+    assert late.status_code == 404
+    assert anon.get(base).data["can_upload"] is False

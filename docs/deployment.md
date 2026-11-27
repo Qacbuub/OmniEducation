@@ -146,5 +146,5 @@ sign-ins for their first days; use an established account.
 ```bash
 cd backend
 .venv\Scripts\activate           # macOS/Linux: source .venv/bin/activate
-pytest                           # 89 tests; on PostgreSQL the omniedu user needs CREATEDB
+pytest                           # 92 tests; on PostgreSQL the omniedu user needs CREATEDB
 ```

@@ -15,7 +15,7 @@ from django.db.models import Avg, Count, Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
-from admissions.hooks import register_enrollment_handler, register_target_validator
+from admissions.hooks import register_enrollment_handler, register_target_options, register_target_validator
 from core.exceptions import BusinessRuleViolation
 from people.scoping import register_student_scope
 from reports.views import register_dashboard_provider
@@ -50,6 +50,12 @@ def validate_program(tenant, target_id):
     if program is None:
         raise ValidationError({"target_id": ["Choose a program offered by this university."]})
     return program.name
+
+
+@register_target_options("university")
+def program_options(tenant):
+    return [{"id": p.id, "name": p.name, "code": p.code}
+            for p in Program.objects.filter(tenant=tenant, is_active=True).order_by("name")]
 
 
 def _program_for(tenant, application, data):

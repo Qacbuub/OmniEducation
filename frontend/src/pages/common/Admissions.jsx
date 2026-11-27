@@ -8,7 +8,7 @@ import { useAction, useApi, useDebounced } from "../../utils/hooks";
 import { money, shortDate, timeAgo, titleCase } from "../../utils/format";
 import { Badge, Button, Card, Field, Modal, PageHeader } from "../../components/ui";
 import { DataTable } from "../../components/ui/DataTable";
-import { ActionFeedback, KeyValues, SelectBox } from "../../components/ui/extra";
+import { ActionFeedback, CopyLink, KeyValues, SelectBox } from "../../components/ui/extra";
 import { StudentAvatar } from "./StudentDetail";
 
 const STATUSES = ["submitted", "under_review", "approved", "offered", "offer_accepted", "offer_declined", "enrolled",
@@ -395,7 +395,10 @@ export default function Admissions() {
           page={page} onPage={setPage} />
       </Card>
       <p className="muted" style={{ fontSize: "var(--fs-sm)" }}>
-        Applicants can also apply online at <span className="mono">/api/public/{user.tenant.slug}/apply/</span> and check their status with their reference code.
+        Applicants can also apply online on your public page{" "}
+        <a href={`/apply/${user.tenant.slug}`} target="_blank" rel="noreferrer" className="mono">/apply/{user.tenant.slug}</a>{" "}
+        (<CopyLink href={`${window.location.origin}/apply/${user.tenant.slug}`} label="copy link" />) and follow their
+        application there with their reference code.
       </p>
       {params.get("new") === "1" && <NewApplication mode={mode} onClose={() => setParams({})} onDone={() => { setParams({}); reload(); }} />}
       {open && <ApplicationDetail app={open} mode={mode} canDecide={canDecide} onClose={() => setOpen(null)} onChanged={reload} />}

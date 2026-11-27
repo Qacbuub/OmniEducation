@@ -60,6 +60,7 @@ class ApplicationSerializer(TenantModelSerializer):
         read_only_fields = ["application_no", "reference_code", "status", "source", "submitted_at",
                             "reviewed_at", "decision_notes"]
         validators = []
+        extra_kwargs = {"requested_level": {"required": False}}  # filled from target_id when that is given
 
     def get_allowed_transitions(self, obj):
         return obj.allowed_transitions()
@@ -96,6 +97,9 @@ class ApplicationSerializer(TenantModelSerializer):
         target_id = attrs.get("target_id")
         if validator and target_id is not None:
             attrs["requested_level"] = validator(tenant, target_id)  # raises ValidationError if invalid
+        if not (attrs.get("requested_level") or getattr(self.instance, "requested_level", "")):
+            what = "grade level" if tenant.is_school else "program"
+            raise serializers.ValidationError({"requested_level": [f"Choose the {what} you are applying for."]})
         email = attrs.get("email")
         if email and not self.instance:
             open_dup = Application.objects.filter(tenant=tenant, email__iexact=email).exclude(

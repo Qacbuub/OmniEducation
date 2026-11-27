@@ -6,7 +6,7 @@ import pytest
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from admissions.models import AcademicPeriod
+from admissions.models import AcademicPeriod, Application
 from finance import services as fin
 from university import services
 from university.models import (
@@ -129,8 +129,15 @@ def test_university_end_to_end(client_for, uni, anon):
         "guardian_name": "Byron L", "guardian_relationship": "father", "guardian_phone": "+255712000999"}, format="json")
     assert app.status_code == 201, app.data
     app_id = registrar.get("/api/admissions/").data["results"][0]["id"]
-    for st in ("under_review", "offered", "offer_accepted"):
+    for st in ("under_review", "offered"):
         assert registrar.post(f"/api/admissions/{app_id}/decide/", {"status": st}, format="json").status_code == 200
+    # The applicant accepts the offer online with their private reference code.
+    ref = f"/api/public/{uni['t'].slug}/applications/{app.data['reference_code']}/"
+    assert anon.get(ref).data["can_respond"] is True
+    r = anon.post(ref + "respond/", {"decision": "accept"}, format="json")
+    assert r.status_code == 200 and r.data["status"] == "offer_accepted" and r.data["can_respond"] is False
+    again = anon.post(ref + "respond/", {"decision": "decline"}, format="json")
+    assert again.status_code == 400 and again.data["code"] == "invalid_transition"
     r = registrar.post(f"/api/admissions/{app_id}/enroll/", {"adviser": uni["staff"]["adviser"].id}, format="json")
     assert r.status_code == 201, r.data
     student_id = r.data["student_id"]
@@ -499,3 +506,25 @@ def test_semester_settings_validation(uni):
                    registration_end=TODAY - timedelta(1), add_drop_end=TODAY)
     with pytest.raises(ValidationError):
         sem.clean()
+
+
+def test_public_form_lists_programs_and_offer_can_be_declined(uni, anon, client_for):
+    form = anon.get(f"/api/public/{uni['t'].slug}/apply/").data
+    assert form["type"] == "university" and uni["prog"].id in [o["id"] for o in form["options"]]
+    assert uni["t"].slug in [i["slug"] for i in anon.get("/api/public/institutions/").data]
+    app = anon.post(f"/api/public/{uni['t'].slug}/apply/", {
+        "first_name": "Grace", "last_name": "Hopper", "date_of_birth": "2006-12-09", "email": "grace@example.com",
+        "target_id": uni["prog"].id, "gender": "female", "phone": "+255712000222", "address": "1 Navy Rd",
+        "guardian_name": "W Murray", "guardian_relationship": "father", "guardian_phone": "+255712000333"},
+        format="json")
+    assert app.status_code == 201, app.data
+    ref = f"/api/public/{uni['t'].slug}/applications/{app.data['reference_code'].lower()}/"
+    early = anon.post(ref + "respond/", {"decision": "accept"}, format="json")
+    assert early.status_code == 400  # no offer yet
+    registrar = client_for(uni["staff"]["registrar"])
+    app_id = Application.objects.get(reference_code=app.data["reference_code"]).id
+    for st in ("under_review", "offered"):
+        registrar.post(f"/api/admissions/{app_id}/decide/", {"status": st}, format="json")
+    assert anon.post(ref + "respond/", {"decision": "maybe"}, format="json").status_code == 400
+    r = anon.post(ref + "respond/", {"decision": "decline"}, format="json")
+    assert r.status_code == 200 and r.data["status"] == "offer_declined"

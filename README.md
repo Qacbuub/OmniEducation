@@ -59,7 +59,7 @@ npm run dev                         # http://localhost:5173
 
 Tests (they create their own temporary database; on PostgreSQL the `omniedu` user needs CREATEDB):
 ```bash
-cd backend && pytest               # 89 tests, pass on SQLite and PostgreSQL 16+
+cd backend && pytest               # 92 tests, pass on SQLite and PostgreSQL 16+
 ```
 
 ## Documentation
@@ -72,7 +72,7 @@ cd backend && pytest               # 89 tests, pass on SQLite and PostgreSQL 16+
 | [docs/school.md](docs/school.md) | K-12 business rules |
 | [docs/university.md](docs/university.md) | University business rules |
 | [docs/deployment.md](docs/deployment.md) | Docker/Nginx deployment, HTTPS, PostgreSQL, email |
-| [docs/limitations.md](docs/limitations.md) | Known limitations and verification status |
+| [docs/limitations.md](docs/limitations.md) | Known limitations, verification status and prioritized improvements |
 
 ## Demo accounts
 Password for every account: **`Demo@1234`** (synthetic data only).
@@ -94,6 +94,12 @@ Password for every account: **`Demo@1234`** (synthetic data only).
 | | Academic adviser | adviser@omniu.edu |
 | | Student | student@omniu.edu |
 | | Finance officer | finance@omniu.edu |
+
+## Online application (no account needed)
+Applicants open **`/apply`** (also linked from the sign-in page), choose a school or university and fill in the
+form. They get a private reference code and use it on **`/apply/<institution>/status`** to follow the application,
+add a passport photo and supporting documents, and (university) accept or decline an offer. Staff see online
+applications in *Admissions*, marked *Online*.
 
 ## Project layout
 ```

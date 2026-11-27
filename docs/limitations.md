@@ -12,10 +12,6 @@ would be needed to close it.
 
 ## Functional gaps
 
-- **No public application web page.** Applicants can apply through the public API
-  (`POST /api/public/<institution>/apply/`) and check status with their reference code, but the React app only has
-  the staff application form. A small public form page would close this. The public API also does not accept a
-  photo; staff add it during review.
 - **No bulk import.** Students, staff and marks are entered one by one (students can be exported to CSV). A CSV
   import with validation and a dry run would help institutions moving from another system.
 - **Timetables are built by hand.** The server rejects clashes (a teacher or class booked twice), but it does not
@@ -46,10 +42,10 @@ would be needed to close it.
 
 | What | Status |
 |---|---|
-| Backend tests | 89 automated tests (pytest) pass on SQLite and on PostgreSQL 16: tenancy, permissions, workflows, money, grades, security. |
+| Backend tests | 92 automated tests (pytest) pass on SQLite and on PostgreSQL 16: tenancy, permissions, workflows, money, grades, security, the public application. |
 | API smoke test | Every list endpoint opened as all 20 demo accounts on PostgreSQL: no server errors. |
 | Frontend | No automated UI test suite. Every screen was opened as every demo role in a browser with no API or console errors, and the main end-to-end flows were exercised by hand. A static checker verifies imports, exports and icons. |
-| Docker deployment | Files written; the entrypoint (migrate, collectstatic, demo seed) and Gunicorn with production settings were run against PostgreSQL. **The full `docker compose` stack with Nginx was not started**, because the build environment had no Docker daemon. |
+| Docker deployment | Verified on Windows with Docker Desktop: `docker-local.bat` builds and starts PostgreSQL, Django/Gunicorn and Nginx with the React build; sign-in, dashboards, the online application flow and the OpenAPI page work through Nginx. The cloud script (`deploy/server-setup.sh`, Let's Encrypt HTTPS) has not been run on a real server. |
 | Load and accessibility | Not measured. Form fields have labels and controls are keyboard-reachable, but there has been no formal WCAG audit or load test. |
 | Mock frontend mode | `VITE_USE_MOCK=true` (frontend without a backend) covers only the original screens, not the school/university modules added later. Use the real API. |
 
@@ -62,3 +58,19 @@ would be needed to close it.
   [deployment.md](deployment.md)).
 - **Secrets live in `.env` files** (`backend/.env`, `.env.prod`), kept out of Git by `.gitignore`. A managed secret
   store is the production answer.
+
+## Prioritized improvements
+
+In the order we would do them, with the reason for each position.
+
+| # | Improvement | Why this order |
+|---|---|---|
+| 1 | **Real payment provider** (e.g. M-Pesa/Stripe hosted checkout with a verified webhook) | Fees are the main daily action for parents and students; today staff record every payment by hand. |
+| 2 | **Background email/notification queue** (Celery or RQ, with retries) and **SMS** | Makes notifications reliable and reaches parents without email, which matters most for attendance alerts. |
+| 3 | **Automated frontend tests** (Playwright for the main school and university flows) | The backend is covered by tests; the React screens were checked by hand only. |
+| 4 | **Bulk CSV import** with validation and a dry run (students, staff, marks) | Needed for any institution moving from another system. |
+| 5 | **Admin password reset for users and staff accounts created without email** | Removes the need for developer tools when someone cannot reset their own password. |
+| 6 | **Richer fees:** per-credit tuition, instalment plans, late penalties, payment reversal/refunds | Real fee policies; current plans are flat. |
+| 7 | **Course waiting lists** and **timetable generation** | Quality-of-life for registrars; the clash and capacity rules already protect data. |
+| 8 | **Translations** (Swahili, Somali, Arabic) and an accessibility audit (WCAG 2.2 AA) | Wider reach; labels and keyboard access are in place but not formally audited. |
+| 9 | **Custom-domain routing and object storage** (S3-compatible) for uploads | Needed when running several servers or giving each institution its own address. |

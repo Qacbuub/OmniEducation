@@ -143,7 +143,8 @@ is kept.
 | Brute force | Login and password-reset throttling in Django, plus an Nginx rate limit on the login endpoint. |
 | Passwords | Django's PBKDF2 hashing and password validators; reset links are single-use and expire in 1 hour; the reset endpoint never reveals whether an email exists. |
 | Accounts | Staff, parents and students join by invitation (expiring token); roles allowed per institution mode. |
-| Files | Uploads are checked by content (not by name) and size, stored under random names, and served only through permission-checked endpoints. |
+| Files | Photos are checked by content (real JPG/PNG only, 3 MB); documents by type (.pdf, .docx, .jpg, .png) and size (5 MB). All are stored under random names and served only through permission-checked endpoints; only institution logos are public. |
+| Public application | `/api/public/…` needs no sign-in and is rate-limited per IP. It shows only institution names and what can be applied for. An applicant sees their own application only with its private 10-character reference code, can add a photo and documents only before a decision, cannot label an upload as an official document, and can only accept or decline an open offer. |
 | Audit | Append-only `AuditEvent` (cannot be edited or deleted): sign-ins, failed sign-ins, data changes with before/after values, decisions, payments, exports, downloads. |
 | Payments | Mock only: no card data is collected or stored; mock receipts are labelled as such. |
 | Transport & headers | HTTPS via Nginx, HSTS and secure cookies in production, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`. |

@@ -9,10 +9,15 @@ router.register("admissions", views.ApplicationViewSet, basename="application")
 router.register("enrollments", views.EnrollmentViewSet, basename="enrollment")
 
 urlpatterns = [
+    path("public/institutions/", views.PublicInstitutionListView.as_view(), name="public-institutions"),
     path("public/<slug:slug>/apply/", views.PublicApplicationView.as_view(), name="public-apply"),
     path("public/<slug:slug>/applications/<str:reference>/", views.PublicApplicationStatusView.as_view(),
          name="public-application-status"),
     path("public/<slug:slug>/applications/<str:reference>/documents/", views.PublicApplicationDocumentView.as_view(),
          name="public-application-documents"),
+    path("public/<slug:slug>/applications/<str:reference>/photo/", views.PublicApplicationPhotoView.as_view(),
+         name="public-application-photo"),
+    path("public/<slug:slug>/applications/<str:reference>/respond/", views.PublicOfferResponseView.as_view(),
+         name="public-offer-response"),
     *router.urls,
 ]
