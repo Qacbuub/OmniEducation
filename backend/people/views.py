@@ -69,15 +69,27 @@ def _invite_portal_user(request, profile, role_code):
     pending = Invitation.objects.filter(tenant=request.user.tenant, email=email, accepted_at__isnull=True,
                                         expires_at__gt=timezone.now()).first()
     if pending:  # clicking "invite" again re-sends the same invitation instead of piling up new ones
-        emails.send_invitation(pending)
-        return Response({"message": f"Invitation re-sent to {email}.", "invite_link": invite_link(pending)})
+        sent = emails.send_invitation(pending)
+        return Response(_invite_result(pending, email, sent, resent=True))
     inv = Invitation.objects.create(tenant=request.user.tenant, email=email, role=Role.objects.get(code=role_code),
                                     first_name=profile.person.first_name, last_name=profile.person.last_name,
                                     invited_by=request.user)
-    emails.send_invitation(inv)
-    log_event("portal_account.invited", request=request, target=profile, changes={"email": email, "role": role_code})
-    return Response({"message": f"Invitation sent to {email}.", "invite_link": invite_link(inv)},
-                    status=status.HTTP_201_CREATED)
+    sent = emails.send_invitation(inv)
+    log_event("portal_account.invited", request=request, target=profile,
+              changes={"email": email, "role": role_code, "emailed": sent})
+    return Response(_invite_result(inv, email, sent), status=status.HTTP_201_CREATED)
+
+
+def _invite_result(inv, email, sent, resent=False):
+    """Tell staff honestly whether the email went out; if it did not, give them the link to pass on."""
+    if sent:
+        message = f"Invitation {'re-sent' if resent else 'emailed'} to {email}."
+    elif not emails.emails_enabled():
+        message = f"Invitation created for {email}. This server does not send emails, so share the sign-up link."
+    else:
+        message = (f"Invitation created for {email}, but the email could not be sent. "
+                   "Share the sign-up link, or try again later.")
+    return {"message": message, "email_sent": sent, "invite_link": invite_link(inv, force=not sent)}
 
 
 class StudentViewSet(TenantScopedViewSetMixin, viewsets.ModelViewSet):

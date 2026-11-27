@@ -187,3 +187,21 @@ def test_token_fork_gives_independent_session(anon, make_user, school):
     assert anon.post("/api/auth/token/refresh/", {"refresh": first["refresh"]}, format="json").status_code == 401
     assert anon.post("/api/auth/token/refresh/", {"refresh": fork.data["refresh"]}, format="json").status_code == 200
     assert anon.post("/api/auth/token/fork/", {"refresh": "junk"}, format="json").status_code == 401
+
+
+def test_portal_invite_reports_whether_the_email_was_sent(client_for, make_user, make_student, school, settings):
+    from django.core import mail
+    admin = client_for(make_user("adm@s.edu", "inst_admin", school))
+    student = make_student(school, email="pupil.mail@example.com")
+    url = f"/api/students/{student.id}/portal-account/"
+
+    settings.EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+    settings.SHOW_INVITE_LINKS = False
+    off = admin.post(url)
+    assert off.status_code == 201 and off.data["email_sent"] is False
+    assert "does not send emails" in off.data["message"] and off.data["invite_link"]  # staff must pass it on
+
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    again = admin.post(url)  # same pending invitation, now really emailed
+    assert again.data["email_sent"] is True and again.data["invite_link"] is None
+    assert len(mail.outbox) == 1 and mail.outbox[0].to == ["pupil.mail@example.com"]

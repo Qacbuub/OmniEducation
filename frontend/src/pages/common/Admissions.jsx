@@ -284,11 +284,26 @@ function ApplicationDetail({ app: initial, mode, canDecide, onClose, onChanged }
   const [app, setApp] = useState(initial);
   const [notes, setNotes] = useState("");
   const act = useAction();
+  // Applicants can answer offers and add documents online while this window is open, so keep it fresh.
+  const changedRef = useRef(onChanged);
+  changedRef.current = onChanged;
+  const statusRef = useRef(initial.status);
+  const reload = async () => {
+    try {
+      const fresh = await api.get(`/admissions/${initial.id}/`);
+      setApp(fresh);
+      if (fresh.status !== statusRef.current) { statusRef.current = fresh.status; changedRef.current(); }
+    } catch { /* keep showing what we have */ }
+  };
+  useEffect(() => {
+    const timer = setInterval(() => { if (document.visibilityState === "visible") reload(); }, 15000);
+    return () => clearInterval(timer);
+  }, [initial.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const decide = async (status) => {
     // Leaving the workflow is easy to click by mistake, so ask first.
     if (CONFIRM[status] && !window.confirm(CONFIRM[status])) return;
     const r = await act.run(() => api.post(`/admissions/${app.id}/decide/`, { status, notes }), `Status changed to ${titleCase(status)}.`);
-    if (r) { setApp(r); setNotes(""); onChanged(); }
+    if (r) { setApp(r); statusRef.current = r.status; setNotes(""); onChanged(); } else reload();
   };
   const canEnroll = canDecide && (app.status === "approved" || app.status === "offer_accepted");
   const moves = canDecide ? app.allowed_transitions.filter((s) => s !== "enrolled") : [];

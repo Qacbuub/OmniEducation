@@ -3,6 +3,17 @@ root /usr/share/nginx/html;
 client_max_body_size 12m;          # uploads: photos up to 3 MB, documents up to 10 MB
 server_tokens off;
 
+# Behind a tunnel (Tailscale Funnel) or Docker's port forwarding every visitor arrives from a private address.
+# Trust the forwarded client address only from private networks, so rate limits apply per real visitor;
+# a visitor connecting directly from the internet cannot fake it.
+set_real_ip_from 127.0.0.0/8;
+set_real_ip_from 10.0.0.0/8;
+set_real_ip_from 172.16.0.0/12;
+set_real_ip_from 192.168.0.0/16;
+set_real_ip_from 100.64.0.0/10;    # Tailscale addresses
+real_ip_header X-Forwarded-For;
+real_ip_recursive on;
+
 include /etc/nginx/conf.d/omniedu-headers.inc;
 
 gzip on;

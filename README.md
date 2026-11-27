@@ -18,6 +18,9 @@ Needs only [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or
 **Windows:** double-click **`docker-local.bat`**. It creates `.env.prod` with random secrets, builds and starts
 everything (5-15 minutes the first time), waits until the system answers and opens it in the browser.
 
+**Public link from this computer:** after `docker-local.bat`, run **`public-link.bat`** (needs the free
+[Tailscale](https://tailscale.com/download) app) to publish the system at a fixed `https://…ts.net` address.
+
 **Any system:**
 ```bash
 cp .env.prod.example .env.prod     # then set POSTGRES_PASSWORD and DJANGO_SECRET_KEY

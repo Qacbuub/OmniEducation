@@ -67,6 +67,19 @@ Data lives in three named volumes: `pgdata` (database), `media` (uploads), `stat
 | `EMAIL_BACKEND` (+ SMTP settings) | `console` prints emails to the log; use SMTP for real email |
 | `SHOW_INVITE_LINKS` | show invitation links on screen (only while emails are not really sent) |
 
+### A public link from this computer (Tailscale Funnel, free)
+
+To let people reach the Docker copy on this computer from anywhere, at an address that does not change:
+
+1. Install Tailscale from <https://tailscale.com/download> and sign in.
+2. Start the system with `docker-local.bat`, then run **`public-link.bat`**. It switches on Tailscale Funnel for
+   port 80, puts the public `https://<computer>.<tailnet>.ts.net` name into `.env.prod` (allowed host, email links)
+   and restarts the containers. The first time, Tailscale asks you to allow Funnel in your browser.
+
+The computer is the server: it must stay on, awake and online with Docker running. Nginx reads each visitor's
+address from the tunnel (`set_real_ip_from` for private ranges in `omniedu-app.inc`), so sign-in rate limits stay
+per visitor. Turn the link off with `tailscale funnel reset`.
+
 ### On a cloud server, in one step (Oracle Cloud, DigitalOcean or any Ubuntu 22.04/24.04 server)
 
 `deploy/server-setup.sh` does everything on a fresh Ubuntu server: adds swap on 1 GB machines, installs Docker and

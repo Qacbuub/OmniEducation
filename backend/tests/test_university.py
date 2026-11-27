@@ -138,6 +138,11 @@ def test_university_end_to_end(client_for, uni, anon):
     assert r.status_code == 200 and r.data["status"] == "offer_accepted" and r.data["can_respond"] is False
     again = anon.post(ref + "respond/", {"decision": "decline"}, format="json")
     assert again.status_code == 400 and again.data["code"] == "invalid_transition"
+    # Staff whose screen still showed "offered" record the acceptance too: no error, nothing changes.
+    same = registrar.post(f"/api/admissions/{app_id}/decide/", {"status": "offer_accepted"}, format="json")
+    assert same.status_code == 200 and same.data["status"] == "offer_accepted"
+    stale = registrar.post(f"/api/admissions/{app_id}/decide/", {"status": "offer_declined"}, format="json")
+    assert stale.status_code == 400 and "changed since you opened it" in stale.data["message"]
     r = registrar.post(f"/api/admissions/{app_id}/enroll/", {"adviser": uni["staff"]["adviser"].id}, format="json")
     assert r.status_code == 201, r.data
     student_id = r.data["student_id"]

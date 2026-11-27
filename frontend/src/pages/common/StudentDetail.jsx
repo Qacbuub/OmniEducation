@@ -7,7 +7,7 @@ import { can } from "../../config/roles";
 import { useAction, useApi } from "../../utils/hooks";
 import { money, shortDate, titleCase } from "../../utils/format";
 import { Alert, Badge, Button, Card, EmptyState, Field, Modal, PageHeader, Spinner } from "../../components/ui";
-import { ActionFeedback, DownloadButton, KeyValues, Tabs } from "../../components/ui/extra";
+import { ActionFeedback, CopyLink, DownloadButton, KeyValues, Tabs } from "../../components/ui/extra";
 
 const DOC_KINDS = [
   ["supporting", "Supporting document"], ["birth_certificate", "Birth certificate"],
@@ -158,15 +158,18 @@ function PhotoControls({ student, onChanged }) {
 
 const RELATIONSHIPS = ["mother", "father", "guardian", "grandparent", "sibling", "spouse", "uncle", "aunt", "other"];
 
-/** Show the accept link when the server shares it (local demo where emails only go to the console). */
+/** Say whether the invitation email really went out; show the sign-up link when the server shares it. */
 function InviteResult({ result }) {
   if (!result) return null;
+  const sent = result.email_sent !== false;
   return (
-    <Alert tone="success">
+    <Alert tone={sent ? "success" : "info"}>
       {result.message}
       {result.invite_link && (
         <div style={{ marginTop: 6, fontSize: "var(--fs-xs)" }}>
-          Demo mode – emails are not sent, so share this sign-up link: <a href={result.invite_link} className="mono" style={{ wordBreak: "break-all" }}>{result.invite_link}</a>
+          {sent ? "For testing, the same sign-up link is also shown here: " : "Sign-up link to share: "}
+          <a href={result.invite_link} className="mono" style={{ wordBreak: "break-all" }}>{result.invite_link}</a>{" "}
+          <CopyLink href={result.invite_link} label="Copy" />
         </div>
       )}
     </Alert>

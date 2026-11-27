@@ -17,10 +17,17 @@ def _send(to, subject, body):
         return False
 
 
+def emails_enabled():
+    """False when the server only prints emails to its log (console/dummy backend) instead of sending them."""
+    backend = settings.EMAIL_BACKEND
+    return not (backend.endswith("console.EmailBackend") or backend.endswith("dummy.EmailBackend"))
+
+
 def send_invitation(invitation):
+    """Returns True when the email was really handed to the mail server."""
     institution = invitation.tenant.name if invitation.tenant else "the OmniEducation platform"
     link = f"{settings.FRONTEND_URL}/accept-invitation?token={invitation.token}"
-    _send(
+    return emails_enabled() and _send(
         invitation.email,
         f"You're invited to {institution} on OmniEducation",
         f"Hello,\n\nYou have been invited to join {institution} as {invitation.role.name}.\n"

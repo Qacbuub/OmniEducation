@@ -246,10 +246,15 @@ class ApplicationViewSet(TenantScopedViewSetMixin, mixins.ListModelMixin, mixins
         new = s.validated_data["status"]
         if new == "enrolled":
             raise BusinessRuleViolation("Use the enroll action to enroll an applicant.", code="use_enroll")
+        if new == app.status:  # already there, e.g. the applicant accepted the offer online meanwhile
+            return Response(ApplicationSerializer(app, context={"request": request}).data)
         if not app.can_transition(new):
+            label = lambda st: st.replace("_", " ")  # noqa: E731
+            allowed = ", ".join(label(st) for st in app.allowed_transitions()) or "none"
             raise BusinessRuleViolation(
-                f"An application that is '{app.status}' cannot move to '{new}'. "
-                f"Allowed: {', '.join(app.allowed_transitions()) or 'none'}.", code="invalid_transition")
+                f"This application is now '{label(app.status)}', so it cannot move to '{label(new)}'. It may have "
+                f"changed since you opened it (applicants can answer offers online). Next steps: {allowed}.",
+                code="invalid_transition")
         old = app.status
         app.status = new
         app.decision_notes = s.validated_data.get("notes", app.decision_notes)

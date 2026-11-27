@@ -76,9 +76,10 @@ class InvitationAcceptSerializer(SetPasswordMixin):
     last_name = serializers.CharField(max_length=150)
 
 
-def invite_link(invitation):
-    """The accept link, only where settings allow showing it (local demo with console email)."""
-    if not getattr(settings, "SHOW_INVITE_LINKS", False):
+def invite_link(invitation, force=False):
+    """The accept link, only where settings allow showing it (local demo with console email), or when `force`
+    is set because the email could not be sent and the inviting staff member must pass the link on."""
+    if not (force or getattr(settings, "SHOW_INVITE_LINKS", False)):
         return None
     return f"{settings.FRONTEND_URL}/accept-invitation?token={invitation.token}"
 
