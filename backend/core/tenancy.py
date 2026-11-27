@@ -82,3 +82,36 @@ class TenantScopedViewSetMixin:
     def perform_destroy(self, instance):
         log_event(f"{self._audit_name()}.deleted", request=self.request, target=instance)
         instance.delete()
+
+
+def delete_tenant(tenant):
+    """Permanently delete an institution and every row that belongs to it.
+
+    Rows are removed model by model; a model whose rows are still protected by another model's rows (e.g. a
+    student with invoices) is retried after the others, so the order follows the data instead of a hand list.
+    Returns {model label: rows deleted}. Runs inside the caller's transaction.
+    """
+    from django.apps import apps
+    from django.db import transaction
+    from django.db.models import ProtectedError
+
+    from .models import Tenant
+
+    owned = [m for m in apps.get_models()
+             if any(getattr(f, "related_model", None) is Tenant and f.name == "tenant" for f in m._meta.fields)]
+    counts, remaining = {}, owned
+    while remaining:
+        blocked = []
+        for model in remaining:
+            try:
+                with transaction.atomic():
+                    deleted, per_model = model._base_manager.filter(tenant=tenant).delete()
+                for label, n in per_model.items():
+                    counts[label] = counts.get(label, 0) + n
+            except ProtectedError:
+                blocked.append(model)
+        if len(blocked) == len(remaining):
+            raise ProtectedError("Some records could not be deleted.", set())
+        remaining = blocked
+    tenant.delete()
+    return {k: v for k, v in counts.items() if v}

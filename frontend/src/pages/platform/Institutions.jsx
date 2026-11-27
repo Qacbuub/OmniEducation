@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { LuPlus, LuSchool, LuGraduationCap } from "react-icons/lu";
 import { api } from "../../api/client";
 import { useApi, useDebounced } from "../../utils/hooks";
@@ -88,7 +88,8 @@ export default function Institutions() {
   const [search, setSearch] = useState("");
   const [type, setType] = useState("");
   const [page, setPage] = useState(1);
-  const [notice, setNotice] = useState(null);
+  const location = useLocation();
+  const [notice, setNotice] = useState(location.state?.flash || null); // e.g. "X and all of its data were deleted."
   const q = useDebounced(search);
   const { data, loading, error, reload } = useApi("/tenants/", { search: q, type, page });
   const creating = params.get("new") === "1";

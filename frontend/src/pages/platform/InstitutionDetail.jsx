@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { LuArrowLeft, LuMailPlus, LuSave } from "react-icons/lu";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { LuArrowLeft, LuMailPlus, LuSave, LuTrash2 } from "react-icons/lu";
 import { api } from "../../api/client";
 import { useAction, useApi } from "../../utils/hooks";
 import { shortDate, titleCase } from "../../utils/format";
@@ -80,8 +80,50 @@ export default function InstitutionDetail() {
               ))}
             </ul>
           </Card>
+          <DeleteInstitution tenant={t} />
         </div>
       </div>
     </>
+  );
+}
+
+/** Permanent removal of an institution and all of its data, confirmed by typing its exact name. */
+function DeleteInstitution({ tenant }) {
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState("");
+  const del = useAction();
+  const navigate = useNavigate();
+  const matches = typed.trim() === tenant.name;
+  async function remove(e) {
+    e.preventDefault();
+    const r = await del.run(() => api.delete(`/tenants/${tenant.id}/`, { confirm_name: typed.trim() }));
+    if (r) navigate("/platform/institutions", { replace: true, state: { flash: r.message } });
+  }
+  return (
+    <Card title="Delete institution" className="card--danger">
+      {!open ? (
+        <>
+          <p className="muted" style={{ marginTop: 0, fontSize: "var(--fs-sm)" }}>
+            Removes {tenant.name} and everything in it: {tenant.students} student{tenant.students === 1 ? "" : "s"}, {tenant.staff} user
+            {tenant.staff === 1 ? "" : "s"}, marks, fees and its audit log. To stop access but keep the data, set the status to Suspended instead.
+          </p>
+          <Button variant="danger" icon={LuTrash2} onClick={() => setOpen(true)}>Delete institution…</Button>
+        </>
+      ) : (
+        <form onSubmit={remove} noValidate>
+          <ActionFeedback act={del} />
+          <Alert tone="error">This cannot be undone. All of {tenant.name}'s data will be permanently deleted.</Alert>
+          <Field label={`Type ${tenant.name} to confirm`} error={del.error?.fields?.confirm_name?.[0]}>
+            {(a) => <input {...a} className="input" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />}
+          </Field>
+          <div className="form-actions" style={{ justifyContent: "flex-start" }}>
+            <Button type="submit" variant="danger" icon={LuTrash2} disabled={!matches || del.busy}>
+              {del.busy ? "Deleting…" : "Delete permanently"}
+            </Button>
+            <Button variant="secondary" onClick={() => { setOpen(false); setTyped(""); }} disabled={del.busy}>Cancel</Button>
+          </div>
+        </form>
+      )}
+    </Card>
   );
 }

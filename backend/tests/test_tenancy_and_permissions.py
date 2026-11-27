@@ -1,7 +1,8 @@
 """Security: tenant isolation and role restrictions (acceptance test 'Security' in the brief)."""
 from django.core import mail
 
-from core.models import AuditEvent, Invitation, Tenant
+from core.models import AuditEvent, Invitation, Tenant, User
+from tests.test_finance import _invoice, _pay
 
 
 def test_cross_tenant_student_access_is_not_found(client_for, make_user, make_student, school, university):
@@ -54,6 +55,30 @@ def test_platform_admin_creates_institution_and_invites_admin(client_for, make_u
     assert Invitation.objects.filter(tenant=t, email="head@new.edu", role__code="inst_admin").exists()
     assert any("head@new.edu" in m.to for m in mail.outbox)
     assert AuditEvent.objects.filter(action="tenant.created", tenant=t).exists()
+
+
+def test_platform_admin_deletes_institution_with_all_its_data(client_for, make_user, make_student, school, university):
+    from people.models import Student
+
+    platform = client_for(make_user("root@omni.app", "super_admin"))
+    admin = make_user("admin@s.edu", "inst_admin", school)
+    pupil = make_student(school)
+    other = make_student(university)
+    inv = _invoice(client_for(admin), pupil)  # invoices and payments protect students: deletion must still work
+    _pay(client_for(admin), inv["id"], "40")
+
+    # Only platform admins, and only with the exact name typed.
+    assert client_for(admin).delete(f"/api/tenants/{school.id}/", {"confirm_name": school.name},
+                                    format="json").status_code == 403
+    wrong = platform.delete(f"/api/tenants/{school.id}/", {"confirm_name": "sunrise"}, format="json")
+    assert wrong.status_code == 400 and Tenant.objects.filter(pk=school.pk).exists()
+
+    r = platform.delete(f"/api/tenants/{school.id}/", {"confirm_name": school.name}, format="json")
+    assert r.status_code == 200 and r.data["rows_deleted"] > 0
+    assert not Tenant.objects.filter(pk=school.pk).exists()
+    assert not Student.objects.filter(pk=pupil.pk).exists() and not User.objects.filter(email="admin@s.edu").exists()
+    assert Student.objects.filter(pk=other.pk).exists()  # other institutions are untouched
+    assert AuditEvent.objects.filter(action="tenant.deleted", tenant=None, changes__name=school.name).exists()
 
 
 def test_only_platform_admin_can_create_institutions(client_for, make_user, school):

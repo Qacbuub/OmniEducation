@@ -5,7 +5,7 @@ relationships match the code. Every tenant-owned table also has `tenant_id → c
 the diagrams to keep them readable) plus `created_at` / `updated_at`.
 
 Database table name = `<app>_<model>` in lower case, e.g. `people.Student` → `people_student`.
-52 tables in 7 apps. Start with the overview in [architecture.md](architecture.md#data-model-overview).
+53 tables in 7 apps. Start with the overview in [architecture.md](architecture.md#data-model-overview).
 
 ## Platform, people and accounts
 
@@ -577,6 +577,15 @@ erDiagram
         decimal max_score
         date due_date
     }
+    LectureAttendance {
+        int id PK
+        int offering_id FK
+        int registration_id FK
+        date date
+        string status
+        string note
+        int recorded_by_id FK
+    }
     AssessmentScore {
         int id PK
         int assessment_id FK
@@ -662,6 +671,9 @@ erDiagram
     GraduationClearance }o--o| User : "decided_by"
     GraduationClearance }o--o| User : "requested_by"
     GraduationClearance }o--|| Student : "student"
+    LectureAttendance }o--o| User : "recorded_by"
+    LectureAttendance }o--|| CourseOffering : "offering"
+    LectureAttendance }o--|| CourseRegistration : "registration"
     OfferingMeeting }o--|| CourseOffering : "offering"
     Program }o--|| Department : "department"
     Semester |o--o| AcademicPeriod : "period"

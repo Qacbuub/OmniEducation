@@ -28,7 +28,8 @@ export default function MyCourses() {
             return (
               <Card key={c.registration} bodyClass=""
                 title={<>{c.course_code} · {c.course_title}</>}
-                subtitle={`${c.credit_hours} credits · section ${c.section} · ${c.lecturer || "lecturer to be announced"}`}
+                subtitle={`${c.credit_hours} credits · section ${c.section} · ${c.lecturer || "lecturer to be announced"}${
+                  c.attendance?.rate != null ? ` · attendance ${c.attendance.rate}% (${c.attendance.absences} absent of ${c.attendance.sessions} classes)` : ""}`}
                 actions={c.status === "pending" ? <Badge tone="warning">Awaiting adviser approval</Badge>
                   : c.letter ? <Badge tone="success">Grade {c.letter} · {c.grade_points} pts</Badge> : <Badge tone={tone}>{label}</Badge>}>
                 <div style={{ padding: "0 16px 12px" }}>

@@ -71,6 +71,7 @@ const NAV = {
       { to: "/university/registration", label: "Course registration", icon: LuBookMarked, roles: [R.STUDENT, R.ADVISER, R.REGISTRAR] },
       { to: "/university/timetable", label: "Timetable", icon: LuCalendarDays, roles: [R.STUDENT, R.LECTURER, R.ADVISER, R.REGISTRAR] },
       { to: "/university/gradebook", label: "Gradebook", icon: LuListChecks, roles: [R.LECTURER] },
+      { to: "/university/attendance", label: "Class attendance", icon: LuClipboardCheck, roles: [R.LECTURER] },
       { to: "/university/grade-approvals", label: "Grade approvals", icon: LuShieldCheck, roles: [R.DEPT_HEAD, R.DEAN, R.REGISTRAR] },
       { to: "/university/transcript", label: "Transcript", icon: LuScrollText, roles: [R.STUDENT, R.REGISTRAR, R.ADVISER] },
       { to: "/university/degree-audit", label: "Degree audit", icon: LuGraduationCap, roles: [R.STUDENT, R.ADVISER, R.REGISTRAR] },

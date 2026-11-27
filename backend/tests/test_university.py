@@ -533,3 +533,44 @@ def test_public_form_lists_programs_and_offer_can_be_declined(uni, anon, client_
     assert anon.post(ref + "respond/", {"decision": "maybe"}, format="json").status_code == 400
     r = anon.post(ref + "respond/", {"decision": "decline"}, format="json")
     assert r.status_code == 200 and r.data["status"] == "offer_declined"
+
+
+def test_lecturer_takes_attendance_and_student_sees_rate(uni, matriculate, client_for):
+    from comms.models import Notification
+
+    o = section(uni, "CS101")
+    kim, ali = matriculate("Kim"), matriculate("Ali")
+    rk = CourseRegistration.objects.create(tenant=uni["t"], student=kim, offering=o, status="approved")
+    ra = CourseRegistration.objects.create(tenant=uni["t"], student=ali, offering=o, status="approved")
+    lecturer = client_for(uni["staff"]["lecturer"])
+    url = f"/api/universities/offerings/{o.id}/attendance/"
+
+    sheet = lecturer.get(url).data
+    assert sheet["can_edit"] and not sheet["recorded"] and len(sheet["rows"]) == 2
+    day1, day2 = str(TODAY - timedelta(2)), str(TODAY)
+    r = lecturer.post(url, {"date": day1, "records": [{"registration": rk.id, "status": "present"},
+                                                      {"registration": ra.id, "status": "absent", "note": "sick"}]},
+                      format="json")
+    assert r.status_code == 200, r.data
+    lecturer.post(url, {"date": day2, "records": [{"registration": rk.id, "status": "late"},
+                                                  {"registration": ra.id, "status": "present"}]}, format="json")
+    rows = {x["name"].split()[0]: x for x in lecturer.get(url, {"date": day1}).data["rows"]}
+    assert rows["Ali"]["status"] == "absent" and rows["Ali"]["rate"] == 50 and rows["Kim"]["rate"] == 100
+    assert Notification.objects.filter(user=ali.user, kind="attendance").count() == 1
+    # Saving the same day again updates it instead of adding a second record.
+    lecturer.post(url, {"date": day1, "records": [{"registration": ra.id, "status": "excused"}]}, format="json")
+    assert lecturer.get(url, {"date": day1}).data["rows"][0]["absences"] + \
+        lecturer.get(url, {"date": day1}).data["rows"][1]["absences"] == 0
+
+    # Rules: no future dates, no dates outside the semester, only this section's students, only its lecturer.
+    future = lecturer.post(url, {"date": str(TODAY + timedelta(1)), "records": [{"registration": rk.id,
+                                                                                 "status": "present"}]}, format="json")
+    assert future.status_code == 400
+    early = lecturer.post(url, {"date": str(TODAY - timedelta(200)), "records": [{"registration": rk.id,
+                                                                                   "status": "present"}]}, format="json")
+    assert early.status_code == 400
+    assert client_for(uni["staff"]["lecturer2"]).get(url).status_code == 403
+    assert client_for(kim.user).post(url, {"date": day1, "records": []}, format="json").status_code == 403
+
+    mine = client_for(ali.user).get("/api/universities/registrations/coursework/?student=me").data
+    assert mine["courses"][0]["attendance"] == {"sessions": 2, "absences": 0, "late": 0, "excused": 1, "rate": 100}

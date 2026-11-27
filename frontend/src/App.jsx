@@ -27,6 +27,7 @@ import Offerings from "./pages/university/Offerings";
 import Registration from "./pages/university/Registration";
 import UniTimetable from "./pages/university/Timetable";
 import Gradebook from "./pages/university/Gradebook";
+import UniversityAttendance from "./pages/university/Attendance";
 import GradeApprovals from "./pages/university/GradeApprovals";
 import Transcript from "./pages/university/Transcript";
 import DegreeAudit from "./pages/university/DegreeAudit";
@@ -122,6 +123,7 @@ export default function App() {
               <Route path="/university/registration" element={<Registration />} />
               <Route path="/university/timetable" element={<UniTimetable />} />
               <Route path="/university/gradebook" element={<Gradebook />} />
+              <Route path="/university/attendance" element={<UniversityAttendance />} />
               <Route path="/university/grade-approvals" element={<GradeApprovals />} />
               <Route path="/university/transcript" element={<Transcript />} />
               <Route path="/university/degree-audit" element={<DegreeAudit />} />

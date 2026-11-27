@@ -64,6 +64,15 @@ through an **amendment** with a reason. The amendment adds a new transcript entr
 so the full history is kept, and it is written to the grade-approval history and the audit log. Transcript
 entries and grade-approval history cannot be edited or deleted.
 
+## Class attendance
+
+Lecturers record attendance for each class meeting of their own sections (*Class attendance* page,
+`GET/POST /api/universities/offerings/{id}/attendance/?date=`): present, late, absent or excused, with a note.
+Only approved registrations appear; dates must be inside the semester and not in the future; saving a day again
+updates it. Absent students get an in-app notification. The attendance rate is (present + late) ÷ (classes
+recorded − excused); students see it per course on *My courses & marks*. The registrar can view and correct
+any section.
+
 ## GPA, CGPA and standing
 
 * Semester GPA = Σ(grade points × credits) ÷ Σ credits for that semester's entries.

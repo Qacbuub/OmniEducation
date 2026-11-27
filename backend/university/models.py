@@ -309,6 +309,32 @@ class UniversityAssessment(TenantScopedModel):
         return f"{self.offering.course.code} {self.name}"
 
 
+class LectureAttendance(TenantScopedModel):
+    """A registered student's attendance at one class meeting of a section, recorded by the lecturer."""
+
+    class Status(models.TextChoices):
+        PRESENT = "present", "Present"
+        ABSENT = "absent", "Absent"
+        LATE = "late", "Late"
+        EXCUSED = "excused", "Excused"
+
+    offering = models.ForeignKey(CourseOffering, on_delete=models.CASCADE, related_name="attendance")
+    registration = models.ForeignKey(CourseRegistration, on_delete=models.CASCADE, related_name="attendance")
+    date = models.DateField()
+    status = models.CharField(max_length=10, choices=Status.choices)
+    note = models.CharField(max_length=200, blank=True)
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                                    related_name="+")
+
+    class Meta:
+        ordering = ["-date"]
+        constraints = [models.UniqueConstraint(fields=["registration", "date"], name="uniq_lecture_attendance_day")]
+        indexes = [models.Index(fields=["offering", "date"])]
+
+    def __str__(self):
+        return f"{self.registration_id} {self.date} {self.status}"
+
+
 class AssessmentScore(TenantScopedModel):
     assessment = models.ForeignKey(UniversityAssessment, on_delete=models.CASCADE, related_name="scores")
     registration = models.ForeignKey(CourseRegistration, on_delete=models.CASCADE, related_name="scores")

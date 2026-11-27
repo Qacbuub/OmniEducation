@@ -1,3 +1,4 @@
+import datetime
 from decimal import Decimal
 
 from django.db import transaction
@@ -12,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from admissions.models import AcademicPeriod, Enrollment
-from comms.services import save_generated_pdf
+from comms.services import notify, save_generated_pdf
 from core.audit import log_event
 from core.exceptions import BusinessRuleViolation
 from core.permissions import AUTHENTICATED, IsTenantUser, IsUniversityTenant, RolePermission
@@ -33,6 +34,7 @@ from .models import (
     Faculty,
     GradeApproval,
     GraduationClearance,
+    LectureAttendance,
     OfferingMeeting,
     Program,
     Semester,
@@ -238,7 +240,7 @@ class OfferingViewSet(UniViewSet, viewsets.ModelViewSet):
     required_perms = {**catalog_perms("uni.offerings.manage"), "mine": AUTHENTICATED, "roster": AUTHENTICATED,
                       "gradebook": AUTHENTICATED, "scores": "uni.grades.submit", "submit_grades": "uni.grades.submit",
                       "approve_grades": "uni.grades.approve", "return_grades": "uni.grades.approve",
-                      "history": AUTHENTICATED}
+                      "history": AUTHENTICATED, "attendance": AUTHENTICATED}
     filterset_fields = ["semester", "course", "lecturer", "status", "course__department"]
     search_fields = ["course__code", "course__title"]
 
@@ -327,6 +329,76 @@ class OfferingViewSet(UniViewSet, viewsets.ModelViewSet):
             "rows": rows,
             "history": GradeApprovalSerializer(offering.grade_approvals.select_related("actor")[:20], many=True).data,
         })
+
+    @action(detail=True, methods=["get", "post"])
+    def attendance(self, request, pk=None):
+        """Class attendance for one day: GET ?date= gives the roster with that day's marks and each student's
+        rate so far; POST {date, records: [{registration, status, note}]} saves it (assigned lecturer or registrar)."""
+        offering = self._gradebook_offering(request)
+        can_edit = offering.lecturer_id == request.user.id or request.user.has_perm_code("uni.offerings.manage")
+        raw = request.data.get("date") if request.method == "POST" else request.query_params.get("date")
+        try:
+            day = datetime.date.fromisoformat(raw) if raw else timezone.localdate()
+        except ValueError:
+            raise ValidationError({"date": ["Use the format YYYY-MM-DD."]})
+        regs = list(offering.registrations.filter(status="approved").select_related("student__person")
+                    .order_by("student__person__last_name", "student__person__first_name"))
+        if request.method == "POST":
+            if not can_edit:
+                raise PermissionDenied("Only the section's lecturer or the registrar can record attendance.")
+            period = offering.semester.period
+            if day > timezone.localdate():
+                raise ValidationError({"date": ["Attendance can't be recorded for a future date."]})
+            if not (period.start_date <= day <= period.end_date):
+                raise ValidationError({"date": [f"Pick a date inside {period.name} "
+                                                f"({period.start_date} to {period.end_date})."]})
+            records = request.data.get("records")
+            if not isinstance(records, list) or not records:
+                raise ValidationError({"records": ["Send at least one student."]})
+            by_id = {r.id: r for r in regs}
+            valid = set(LectureAttendance.Status.values)
+            saved = absent = 0
+            with transaction.atomic():
+                for item in records:
+                    reg = by_id.get(int(item.get("registration") or 0))
+                    st = item.get("status")
+                    if reg is None:
+                        raise ValidationError({"records": ["A student is not registered in this section."]})
+                    if st not in valid:
+                        raise ValidationError({"records": [f"Unknown status '{st}'."]})
+                    LectureAttendance.objects.update_or_create(
+                        tenant=offering.tenant, registration=reg, date=day,
+                        defaults={"offering": offering, "status": st, "note": str(item.get("note", ""))[:200],
+                                  "recorded_by": request.user})
+                    saved += 1
+                    if st == LectureAttendance.Status.ABSENT and reg.student.user_id:
+                        absent += 1
+                        notify([reg.student.user], f"Absent from {offering.course.code}",
+                               f"You were marked absent from {offering.course.code} {offering.course.title} on {day}.",
+                               kind="attendance", link="/university/my-courses")
+            log_event("lecture_attendance.recorded", request=request, target=offering,
+                      changes={"date": str(day), "saved": saved})
+        marks = {a.registration_id: a for a in LectureAttendance.objects.filter(offering=offering, date=day)}
+        totals = {}
+        for row in (LectureAttendance.objects.filter(offering=offering).values("registration_id", "status")
+                    .annotate(n=Count("id"))):
+            totals.setdefault(row["registration_id"], {})[row["status"]] = row["n"]
+        rows = []
+        for r in regs:
+            t = totals.get(r.id, {})
+            held = sum(t.values())
+            counted = held - t.get("excused", 0)  # excused absences don't lower the rate
+            attended = t.get("present", 0) + t.get("late", 0)
+            a = marks.get(r.id)
+            rows.append({"registration": r.id, "student_no": r.student.student_no, "name": r.student.person.full_name,
+                         "status": a.status if a else None, "note": a.note if a else "",
+                         "absences": t.get("absent", 0), "sessions": held,
+                         "rate": round(attended * 100 / counted) if counted else None})
+        dates = list(LectureAttendance.objects.filter(offering=offering).values_list("date", flat=True)
+                     .distinct().order_by("-date")[:12])
+        return Response({"date": day, "can_edit": can_edit, "recorded": bool(marks), "rows": rows,
+                         "recent_dates": dates,
+                         "meeting_days": sorted({m.day for m in offering.meetings.all()})})
 
     @action(detail=True, methods=["post"])
     def scores(self, request, pk=None):
@@ -459,7 +531,7 @@ class RegistrationViewSet(UniViewSet, mixins.ListModelMixin, mixins.RetrieveMode
             raise Http404
         regs = (CourseRegistration.objects.filter(student=student, offering__semester=sem, status__in=["approved", "pending"])
                 .select_related("offering__course", "offering__lecturer", "grade").prefetch_related("scores",
-                                                                                                   "offering__assessments"))
+                                                                                                   "offering__assessments", "attendance"))
         courses = []
         for r in regs:
             assessments = list(r.offering.assessments.all())
@@ -469,7 +541,16 @@ class RegistrationViewSet(UniViewSet, mixins.ListModelMixin, mixins.RetrieveMode
             marked = sum((Decimal(a.weight) for a in assessments if a.id in scores), Decimal(0))
             grade = getattr(r, "grade", None)
             approved = grade is not None and grade.status == "approved"
+            seen = {}
+            for a in r.attendance.all():
+                seen[a.status] = seen.get(a.status, 0) + 1
+            held = sum(seen.values())
+            counted = held - seen.get("excused", 0)
             courses.append({
+                "attendance": {"sessions": held, "absences": seen.get("absent", 0), "late": seen.get("late", 0),
+                               "excused": seen.get("excused", 0),
+                               "rate": round((seen.get("present", 0) + seen.get("late", 0)) * 100 / counted)
+                               if counted else None},
                 "registration": r.id, "status": r.status, "course_code": r.offering.course.code,
                 "course_title": r.offering.course.title, "credit_hours": r.offering.course.credit_hours,
                 "section": r.offering.section,

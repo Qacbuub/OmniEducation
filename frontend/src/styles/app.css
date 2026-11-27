@@ -409,3 +409,5 @@ img { max-width: 100%; display: block; }
   .public__bar { padding: 10px 14px; }
   .public__brand span { display: none; }
 }
+.card--danger { border-color: var(--danger); }
+.card--danger .card__title { color: var(--danger); }

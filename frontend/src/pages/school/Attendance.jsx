@@ -9,7 +9,7 @@ import { classOptions, termOptions, today, useMyClasses, useTerms } from "./comm
 
 const STATUSES = [["present", "Present"], ["late", "Late"], ["absent", "Absent"], ["excused", "Excused"]];
 
-function StatusPicker({ name, value, onChange }) {
+export function StatusPicker({ name, value, onChange }) {
   return (
     <div className="seg" role="radiogroup" aria-label={name}>
       {STATUSES.map(([v, l]) => (

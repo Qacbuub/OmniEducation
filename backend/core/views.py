@@ -306,6 +306,23 @@ class TenantViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cre
         log_event("tenant.updated", request=self.request, tenant=tenant, target=tenant,
                   changes={k: str(v) for k, v in serializer.validated_data.items()})
 
+    def destroy(self, request, *args, **kwargs):
+        """Permanently delete an institution and all of its data. The platform admin must type its exact name."""
+        from .tenancy import delete_tenant
+
+        tenant = self.get_object()
+        if str(request.data.get("confirm_name", "")).strip() != tenant.name:
+            raise ValidationError({"confirm_name": [f"Type the institution's name exactly as shown ({tenant.name}) "
+                                                    "to confirm."]})
+        name, slug, kind = tenant.name, tenant.slug, tenant.type
+        with transaction.atomic():
+            counts = delete_tenant(tenant)
+            # Recorded at platform level: the institution's own audit history is deleted with it.
+            log_event("tenant.deleted", request=request, changes={
+                "name": name, "slug": slug, "type": kind, "rows_deleted": sum(counts.values())})
+        return Response({"message": f"{name} and all of its data were deleted.",
+                         "rows_deleted": sum(counts.values())})
+
     @action(detail=True, methods=["post"], url_path="invite-admin")
     def invite_admin(self, request, pk=None):
         """Re-invite / add another administrator for an institution."""

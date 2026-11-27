@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { LuLock, LuSave } from "react-icons/lu";
+import { LuLock, LuPlus, LuSave } from "react-icons/lu";
 import { api } from "../../api/client";
 import { useAction, useApi } from "../../utils/hooks";
 import { shortDate, titleCase } from "../../utils/format";
 import { Alert, Button, Card, EmptyState, PageHeader, Spinner } from "../../components/ui";
 import { ActionFeedback, SelectBox, Tabs } from "../../components/ui/extra";
+import { NewAssessment } from "./Homework";
 import { useClassSubjectTerm } from "./pickers";
 
 function MarkSheet({ assessmentId, onSaved }) {
@@ -89,6 +90,7 @@ export default function Marks() {
   const [picked, setPicked] = useState(linked || "");
   const { picker, section, subject, term, loading, select } = useClassSubjectTerm({ onUserChange: () => setPicked(""), initialSection: params.get("section") || "" });
   const [tab, setTab] = useState("enter");
+  const [creating, setCreating] = useState(false);
   const list = useApi(section && subject && term ? "/schools/assessments/" : null,
     { section: section?.id, subject: subject?.subject, term, page_size: 100, ordering: "due_date" });
   const items = (list.data?.results || []).filter((a) => Number(a.weight) > 0 || a.marked > 0);
@@ -103,7 +105,7 @@ export default function Marks() {
   return (
     <>
       <PageHeader title="Marks entry" description="Enter homework, quiz, test and exam marks. Term scores are weighted automatically; marks lock once results are finalized." />
-      {loading ? <Spinner /> : !section ? <Alert tone="info">You don't teach any classes this year.</Alert> : (
+      {loading ? <Spinner /> : !section ? <Alert tone="info">You don't teach any classes in the current academic year yet. The principal or institution admin assigns teachers on <strong>Academic setup</strong>: the <strong>Classes</strong> tab (class teacher) and <strong>Subject teachers &amp; timetable</strong>. The year and its terms must also be set as current under <strong>Years &amp; terms</strong>.</Alert> : (
         <>
           {picker}
           <Tabs value={tab} onChange={setTab} tabs={[{ value: "enter", label: "Enter marks" }, { value: "results", label: "Live term results" }]} />
@@ -113,9 +115,20 @@ export default function Marks() {
                 <SelectBox id="pick-assessment" label="Assessment" value={chosen || ""} width={320}
                   options={items.map((a) => ({ value: a.id, label: `${a.name} (${titleCase(a.kind)}, ${a.marked} marked)` }))}
                   onChange={setPicked} />
+                <Button variant="secondary" icon={LuPlus} onClick={() => setCreating(true)} disabled={!subject || !term}
+                  style={{ alignSelf: "flex-end" }}>New exam or test</Button>
               </div>
               {chosen ? <MarkSheet key={chosen} assessmentId={chosen} onSaved={list.reload} />
-                : <Card><EmptyState title="No graded assessments yet">Create one on the Homework page first.</EmptyState></Card>}
+                : <Card><EmptyState title="No graded assessments yet"
+                    action={<Button icon={LuPlus} onClick={() => setCreating(true)} disabled={!subject || !term}>New exam or test</Button>}>
+                    Create the exam, test or quiz for {subject?.subject_name || "this subject"} first, then enter the marks here.
+                  </EmptyState></Card>}
+              {creating && (
+                <NewAssessment section={section} subject={subject} term={term}
+                  defaults={{ kind: "exam", weight: 40, max_score: 100, name: "End of term exam" }}
+                  onClose={() => setCreating(false)}
+                  onDone={(created) => { setCreating(false); list.reload(); if (created?.id) setPicked(created.id); }} />
+              )}
             </>
           )}
           {tab === "results" && <LiveResults key={selectionKey} section={section} term={term} />}

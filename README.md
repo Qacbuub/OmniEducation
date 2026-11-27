@@ -70,7 +70,7 @@ cd backend && pytest               # 92 tests, pass on SQLite and PostgreSQL 16+
 | Document | Contents |
 |---|---|
 | [docs/architecture.md](docs/architecture.md) | System and module diagrams, request lifecycle, security controls, data-model overview, workflows |
-| [docs/data-model.md](docs/data-model.md) | ER diagrams of all 52 tables, generated from the models |
+| [docs/data-model.md](docs/data-model.md) | ER diagrams of all 53 tables, generated from the models |
 | [docs/roles.md](docs/roles.md) | Role and permission matrix (generated from `core/rbac.py`) and data scope per role |
 | [docs/school.md](docs/school.md) | K-12 business rules |
 | [docs/university.md](docs/university.md) | University business rules |

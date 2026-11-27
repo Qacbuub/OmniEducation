@@ -13,15 +13,17 @@ import { useClassSubjectTerm } from "./pickers";
 
 const KINDS = [["homework", "Homework"], ["quiz", "Quiz"], ["test", "Class test"], ["project", "Project"], ["exam", "Exam"]];
 
-function NewAssessment({ section, subject, term, onClose, onDone }) {
-  const [f, setF] = useState({ name: "", kind: "homework", weight: 10, max_score: 20, due_date: "", description: "" });
+/** Create a homework, quiz, test or exam (also opened from Marks entry with exam defaults). */
+export function NewAssessment({ section, subject, term, onClose, onDone, defaults = {} }) {
+  const [f, setF] = useState({ name: "", kind: "homework", weight: 10, max_score: 20, due_date: "", description: "", ...defaults });
   const act = useAction();
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
   const err = (k) => act.error?.fields?.[k]?.[0];
   async function submit(e) {
     e.preventDefault();
     const body = { ...f, section: section.id, subject: subject.subject, term, due_date: f.due_date || null };
-    if (await act.run(() => api.post("/schools/assessments/", body))) onDone();
+    const created = await act.run(() => api.post("/schools/assessments/", body));
+    if (created) onDone(created);
   }
   return (
     <Modal title={`New assessment · ${section.label} ${subject.subject_name}`} onClose={onClose}>
@@ -57,7 +59,7 @@ function TeacherView() {
       await act.run(() => api.delete(`/schools/assessments/${a.id}/`), "Assessment deleted.") !== undefined) list.reload();
   };
   if (loading) return <Spinner />;
-  if (!section) return <Alert tone="info">You don't teach any classes this year.</Alert>;
+  if (!section) return <Alert tone="info">You don't teach any classes in the current academic year yet. The principal or institution admin assigns teachers on <strong>Academic setup</strong>: the <strong>Classes</strong> tab (class teacher) and <strong>Subject teachers &amp; timetable</strong>. The year and its terms must also be set as current under <strong>Years &amp; terms</strong>.</Alert>;
   const items = list.data?.results || [];
   const weight = items.reduce((s, a) => s + Number(a.weight), 0);
   return (

@@ -145,7 +145,9 @@ export default function Gradebook() {
   return (
     <>
       <PageHeader title="Gradebook" description="Define weighted assessments, enter scores and submit final grades for moderation." />
-      {mine.loading && !mine.data ? <Spinner /> : !list.length ? <Card><EmptyState title="You're not assigned to any sections" /></Card> : (
+      {mine.loading && !mine.data ? <Spinner /> : !list.length ? <Card><EmptyState title="You're not assigned to any sections">
+        The registrar or department head assigns lecturers on <strong>Course offerings</strong>, for the semester set as current.
+      </EmptyState></Card> : (
         <>
           <div className="toolbar">
             <SelectBox id="gb-section" label="Section" value={chosen} onChange={setSelected} width={360}
