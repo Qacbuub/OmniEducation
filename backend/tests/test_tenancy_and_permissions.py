@@ -73,12 +73,14 @@ def test_platform_admin_deletes_institution_with_all_its_data(client_for, make_u
     wrong = platform.delete(f"/api/tenants/{school.id}/", {"confirm_name": "sunrise"}, format="json")
     assert wrong.status_code == 400 and Tenant.objects.filter(pk=school.pk).exists()
 
-    r = platform.delete(f"/api/tenants/{school.id}/", {"confirm_name": school.name}, format="json")
+    r = platform.delete(f"/api/tenants/{school.id}/", {"confirm_name": f"  {school.name.lower()} ",
+                                                         "reason": "Test institution"}, format="json")
     assert r.status_code == 200 and r.data["rows_deleted"] > 0
     assert not Tenant.objects.filter(pk=school.pk).exists()
     assert not Student.objects.filter(pk=pupil.pk).exists() and not User.objects.filter(email="admin@s.edu").exists()
     assert Student.objects.filter(pk=other.pk).exists()  # other institutions are untouched
-    assert AuditEvent.objects.filter(action="tenant.deleted", tenant=None, changes__name=school.name).exists()
+    assert AuditEvent.objects.filter(action="tenant.deleted", tenant=None, changes__name=school.name,
+                                     changes__reason="Test institution").exists()
 
 
 def test_only_platform_admin_can_create_institutions(client_for, make_user, school):
@@ -122,10 +124,83 @@ def test_pupil_sees_only_self(client_for, make_user, make_student, school):
     assert ids == [me.id]
 
 
-def test_students_cannot_be_hard_deleted(client_for, make_user, make_student, school):
-    admin = make_user("admin@s.edu", "inst_admin", school)
-    s = make_student(school)
-    assert client_for(admin).delete(f"/api/students/{s.id}/").status_code == 400
+def test_students_with_history_are_withdrawn_not_deleted(client_for, make_user, make_student, school):
+    from people.models import Person, Student
+    from tests.test_finance import _invoice, _pay
+
+    admin = client_for(make_user("admin@s.edu", "inst_admin", school))
+    fin = client_for(make_user("fin@s.edu", "finance_officer", school))
+    paid = make_student(school, "Has", "History")
+    assert _pay(fin, _invoice(fin, paid)["id"], "10").status_code == 201
+    r = admin.delete(f"/api/students/{paid.id}/")
+    assert r.status_code == 400 and r.data["code"] == "has_history" and "Withdrawn" in r.data["message"]
+    assert Student.objects.filter(pk=paid.pk).exists()
+
+    # A profile created by mistake (no history; an unpaid invoice is fine) is removed with its account.
+    kid = make_user("oops@s.edu", "pupil", school)
+    oops = make_student(school, "Made", "Mistake", user=kid)
+    _invoice(fin, oops)
+    person_id = oops.person_id
+    assert admin.delete(f"/api/students/{oops.id}/").status_code == 204
+    assert not Student.objects.filter(pk=oops.pk).exists() and not Person.objects.filter(pk=person_id).exists()
+    assert not User.objects.filter(email="oops@s.edu").exists()
+    assert client_for(make_user("t@s.edu", "class_teacher", school)).delete(
+        f"/api/students/{paid.id}/").status_code == 403
+
+
+def test_staff_application_and_platform_invitation_deletes(client_for, make_user, school):
+    from admissions.models import AcademicPeriod, Application
+    from people.models import Person, Staff
+    from school.models import ClassSection, GradeLevel
+
+    def profile(user, no):
+        p = Person.objects.create(tenant=school, first_name=user.first_name, last_name="Test", email=user.email)
+        return Staff.objects.create(tenant=school, person=p, user=user, staff_no=no)
+
+    admin_user = make_user("admin@s.edu", "inst_admin", school)
+    admin = client_for(admin_user)
+    teacher = make_user("teach@s.edu", "class_teacher", school)
+    staff = profile(teacher, "STF-0002")
+    year = AcademicPeriod.objects.create(tenant=school, name="2026", kind="academic_year",
+                                         start_date="2026-01-01", end_date="2026-12-31", is_current=True)
+    g = GradeLevel.objects.create(tenant=school, name="Grade 1", order=1)
+    sec = ClassSection.objects.create(tenant=school, grade_level=g, academic_year=year, name="A",
+                                      homeroom_teacher=teacher)
+    assert admin.delete(f"/api/staff/{staff.id}/").status_code == 204
+    assert not User.objects.filter(email="teach@s.edu").exists()
+    sec.refresh_from_db()
+    assert sec.homeroom_teacher is None  # the class stays, now without a class teacher
+    own = profile(admin_user, "STF-0001")
+    assert admin.delete(f"/api/staff/{own.id}/").data["code"] == "self_delete"
+
+    from tests.test_admissions import APPLICANT
+    app_id = admin.post("/api/admissions/", APPLICANT, format="json").data["id"]
+    assert admin.delete(f"/api/admissions/{app_id}/", {"reason": "Duplicate"}, format="json").status_code == 204
+    assert AuditEvent.objects.get(action="application.deleted").changes["reason"] == "Duplicate"
+    assert not Application.objects.filter(pk=app_id).exists()
+
+    platform = client_for(make_user("root@omni.app", "super_admin"))
+    t = platform.post("/api/tenants/", {"name": "Tmp School", "slug": "tmp-school", "type": "school",
+                                        "admin_email": "head@tmp.edu"}, format="json").data
+    inv = Invitation.objects.get(email="head@tmp.edu")
+    assert admin.delete(f"/api/platform/invitations/{inv.id}/").status_code == 403
+    assert platform.delete(f"/api/platform/invitations/{inv.id}/").status_code == 204
+    assert not Invitation.objects.filter(pk=inv.pk).exists() and t["id"]
+
+
+def test_deleting_a_record_still_in_use_explains_why(client_for, make_user, school):
+    from admissions.models import AcademicPeriod
+    from school.models import ClassSection, GradeLevel
+
+    admin = client_for(make_user("admin@s.edu", "inst_admin", school))
+    year = AcademicPeriod.objects.create(tenant=school, name="2026", kind="academic_year",
+                                         start_date="2026-01-01", end_date="2026-12-31", is_current=True)
+    g = GradeLevel.objects.create(tenant=school, name="Grade 1", order=1)
+    ClassSection.objects.create(tenant=school, grade_level=g, academic_year=year, name="A")
+    r = admin.delete(f"/api/academic-periods/{year.id}/")
+    assert r.status_code == 409 and r.data["code"] == "in_use" and "class section" in r.data["message"], r.data
+    assert AcademicPeriod.objects.filter(pk=year.pk).exists()
+    assert not AuditEvent.objects.filter(action__endswith=".deleted").exists()  # rolled back with the delete
 
 
 def test_audit_log_is_tenant_scoped_and_immutable(client_for, make_user, school, university):

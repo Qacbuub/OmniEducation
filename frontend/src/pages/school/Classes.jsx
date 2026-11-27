@@ -14,7 +14,7 @@ function Roster({ section }) {
   if (loading && !data) return <Spinner />;
   const pupils = data?.pupils || [];
   return pupils.length === 0 ? <EmptyState title="No pupils in this class yet" /> : (
-    <table className="table">
+    <div className="table-wrap"><table className="table">
       <thead><tr><th>Pupil</th><th>Admission no.</th><th>Guardian</th><th>Today</th><th className="num">Term attendance</th><th className="num">Absences</th></tr></thead>
       <tbody>
         {pupils.map((p) => (
@@ -28,7 +28,7 @@ function Roster({ section }) {
           </tr>
         ))}
       </tbody>
-    </table>
+    </table></div>
   );
 }
 
@@ -56,7 +56,7 @@ function Subjects({ section, onChanged }) {
             placeholder="Not assigned" options={classTeachers} onChange={setHomeroom} width={260} />
         </div>
       )}
-      <table className="table">
+      <div className="table-wrap"><table className="table">
         <thead><tr><th>Subject</th><th>Code</th><th>Teacher</th><th className="num">Lessons / week</th></tr></thead>
         <tbody>
           {section.assignments.map((a) => (
@@ -70,7 +70,7 @@ function Subjects({ section, onChanged }) {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </>
   );
 }
@@ -113,7 +113,7 @@ export default function Classes() {
       <PageHeader title="Classes & roster" description={all ? "Every class this academic year, with rosters, subject teachers and timetables."
         : "The classes you teach this year."} />
       {loading && !classes.length ? <Spinner /> : !section ? <Card><EmptyState title="No classes yet" /></Card> : (
-        <div className="grid grid--3-1" style={{ gridTemplateColumns: "260px 1fr" }}>
+        <div className="grid grid--side grid--side-260">
           <Card title="Classes" bodyClass="">
             <ul className="list" style={{ padding: "0 12px" }}>
               {classes.map((c) => (

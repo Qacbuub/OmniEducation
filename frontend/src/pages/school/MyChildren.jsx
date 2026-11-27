@@ -52,7 +52,7 @@ export default function MyChildren() {
                 <div className="stack-sm">
                   <h3 className="card__title">Report cards</h3>
                   {c.results.length === 0 ? <p className="muted" style={{ margin: 0 }}>None published yet.</p> : (
-                    <table className="table">
+                    <div className="table-wrap"><table className="table">
                       <thead><tr><th>Term</th><th className="num">Average</th><th>Grade</th><th className="num">Position</th><th /></tr></thead>
                       <tbody>
                         {c.results.map((r) => (
@@ -60,7 +60,7 @@ export default function MyChildren() {
                             <td className="num"><DownloadButton path={`/schools/results/${r.id}/report-card/`}>PDF</DownloadButton></td></tr>
                         ))}
                       </tbody>
-                    </table>
+                    </table></div>
                   )}
                 </div>
                 <div className="stack-sm">

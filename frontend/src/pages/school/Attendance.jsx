@@ -64,7 +64,7 @@ function Register({ classes }) {
           </div>}
           bodyClass="">
           {rows.length === 0 ? <EmptyState title="No pupils in this class" /> : (
-            <table className="table">
+            <div className="table-wrap"><table className="table">
               <thead><tr><th>Pupil</th><th>Status</th><th>Reason (for absences)</th></tr></thead>
               <tbody>
                 {rows.map((r, i) => (
@@ -79,7 +79,7 @@ function Register({ classes }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           )}
         </Card>
       )}
@@ -102,7 +102,7 @@ function Summary({ classes }) {
       </div>
       {!data ? <Spinner /> : (
         <Card title={`Attendance summary · ${data.term}`} subtitle={`Class attendance rate ${data.class_rate ?? "—"}%`} bodyClass="">
-          <table className="table">
+          <div className="table-wrap"><table className="table">
             <thead><tr><th>Pupil</th><th className="num">Days</th><th className="num">Present</th><th className="num">Late</th><th className="num">Absent</th><th className="num">Excused</th><th>Rate</th></tr></thead>
             <tbody>
               {data.rows.map((r) => (
@@ -114,7 +114,7 @@ function Summary({ classes }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </Card>
       )}
     </>

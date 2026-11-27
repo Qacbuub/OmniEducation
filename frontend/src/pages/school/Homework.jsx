@@ -1,32 +1,35 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { LuNotebookPen, LuPlus, LuTrash2 } from "react-icons/lu";
+import { LuNotebookPen, LuPlus } from "react-icons/lu";
 import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { can } from "../../config/roles";
 import { useAction, useApi } from "../../utils/hooks";
 import { shortDate, titleCase } from "../../utils/format";
 import { Alert, Badge, Button, Card, EmptyState, Field, Modal, PageHeader, Spinner } from "../../components/ui";
-import { ActionFeedback, Tabs } from "../../components/ui/extra";
+import { ActionFeedback, ConfirmDelete, RowActions, Tabs } from "../../components/ui/extra";
 import { today } from "./common";
 import { useClassSubjectTerm } from "./pickers";
 
 const KINDS = [["homework", "Homework"], ["quiz", "Quiz"], ["test", "Class test"], ["project", "Project"], ["exam", "Exam"]];
 
 /** Create a homework, quiz, test or exam (also opened from Marks entry with exam defaults). */
-export function NewAssessment({ section, subject, term, onClose, onDone, defaults = {} }) {
-  const [f, setF] = useState({ name: "", kind: "homework", weight: 10, max_score: 20, due_date: "", description: "", ...defaults });
+export function NewAssessment({ section, subject, term, onClose, onDone, defaults = {}, record }) {
+  const [f, setF] = useState(record
+    ? { name: record.name, kind: record.kind, weight: record.weight, max_score: record.max_score, due_date: record.due_date || "",
+        description: record.description || "" }
+    : { name: "", kind: "homework", weight: 10, max_score: 20, due_date: "", description: "", ...defaults });
   const act = useAction();
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
   const err = (k) => act.error?.fields?.[k]?.[0];
   async function submit(e) {
     e.preventDefault();
     const body = { ...f, section: section.id, subject: subject.subject, term, due_date: f.due_date || null };
-    const created = await act.run(() => api.post("/schools/assessments/", body));
+    const created = await act.run(() => (record ? api.patch(`/schools/assessments/${record.id}/`, body) : api.post("/schools/assessments/", body)));
     if (created) onDone(created);
   }
   return (
-    <Modal title={`New assessment · ${section.label} ${subject.subject_name}`} onClose={onClose}>
+    <Modal title={`${record ? "Edit" : "New"} assessment · ${section.label} ${subject.subject_name}`} onClose={onClose}>
       <form onSubmit={submit} noValidate>
         <ActionFeedback act={act} />
         <div className="form-grid">
@@ -41,7 +44,7 @@ export function NewAssessment({ section, subject, term, onClose, onDone, default
         </div>
         <div className="form-actions">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button type="submit" disabled={act.busy}>{act.busy ? "Saving…" : "Create & notify families"}</Button>
+          <Button type="submit" disabled={act.busy}>{act.busy ? "Saving…" : record ? "Save changes" : "Create & notify families"}</Button>
         </div>
       </form>
     </Modal>
@@ -54,10 +57,8 @@ function TeacherView() {
   const list = useApi(section && subject && term ? "/schools/assessments/" : null,
     { section: section?.id, subject: subject?.subject, term, page_size: 100, ordering: "due_date" });
   const act = useAction();
-  const remove = async (a) => {
-    if (window.confirm(`Delete "${a.name}" and any marks entered for it?`) &&
-      await act.run(() => api.delete(`/schools/assessments/${a.id}/`), "Assessment deleted.") !== undefined) list.reload();
-  };
+  const [editing, setEditing] = useState(null);
+  const [removing, setRemoving] = useState(null);
   if (loading) return <Spinner />;
   if (!section) return <Alert tone="info">You don't teach any classes in the current academic year yet. The principal or institution admin assigns teachers on <strong>Academic setup</strong>: the <strong>Classes</strong> tab (class teacher) and <strong>Subject teachers &amp; timetable</strong>. The year and its terms must also be set as current under <strong>Years &amp; terms</strong>.</Alert>;
   const items = list.data?.results || [];
@@ -70,8 +71,8 @@ function TeacherView() {
         subtitle={`${items.length} assessments · graded weights total ${weight} (scores are scaled to 100%)`}
         actions={subject && <Button size="sm" icon={LuPlus} onClick={() => setCreating(true)}>New homework / test</Button>} bodyClass="">
         {items.length === 0 ? <EmptyState icon={LuNotebookPen} title="Nothing set yet for this term" /> : (
-          <table className="table">
-            <thead><tr><th>Title</th><th>Type</th><th>Due</th><th className="num">Weight</th><th className="num">Out of</th><th className="num">Marked</th><th /></tr></thead>
+          <div className="table-wrap"><table className="table">
+            <thead><tr><th>Title</th><th>Type</th><th>Due</th><th className="num">Weight</th><th className="num">Out of</th><th className="num">Marked</th><th className="num">Actions</th></tr></thead>
             <tbody>
               {items.map((a) => (
                 <tr key={a.id}>
@@ -79,18 +80,27 @@ function TeacherView() {
                   <td><Badge tone="neutral">{titleCase(a.kind)}</Badge></td><td>{shortDate(a.due_date)}</td>
                   <td className="num">{Number(a.weight) ? a.weight : <span className="muted">ungraded</span>}</td><td className="num">{a.max_score}</td>
                   <td className="num">{a.marked}/{section.pupil_count}</td>
-                  <td className="num"><div className="row-actions">
-                    <Link className="btn btn--secondary btn--sm" to={`/school/marks?assessment=${a.id}`}>Enter marks</Link>
-                    <Button size="sm" variant="ghost" icon={LuTrash2} aria-label={`Delete ${a.name}`} onClick={() => remove(a)} />
-                  </div></td>
+                  <td className="num">
+                    <RowActions name={a.name} extra={<Link className="btn btn--secondary btn--sm" to={`/school/marks?assessment=${a.id}`}>Enter marks</Link>}
+                      onEdit={() => setEditing(a)} onDelete={() => setRemoving(a)} />
+                  </td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </Card>
       {creating && <NewAssessment section={section} subject={subject} term={term} onClose={() => setCreating(false)}
         onDone={() => { setCreating(false); list.reload(); }} />}
+      {editing && <NewAssessment section={section} subject={subject} term={term} record={editing} onClose={() => setEditing(null)}
+        onDone={() => { setEditing(null); act.say("Assessment saved."); list.reload(); }} />}
+      {removing && (
+        <ConfirmDelete title={`Delete "${removing.name}"`} onConfirm={(reason) => api.delete(`/schools/assessments/${removing.id}/`, { reason })}
+          onClose={(deleted) => { setRemoving(null); if (deleted) { act.say("Assessment deleted."); list.reload(); } }}>
+          <p style={{ margin: 0 }}>The assessment and {removing.marked ? `the ${removing.marked} mark(s) entered for it` : "its marks"} are deleted.
+            Marks lock once the term's results are finalized; after that it can't be deleted.</p>
+        </ConfirmDelete>
+      )}
     </>
   );
 }
@@ -107,7 +117,7 @@ function FamilyView() {
       <Tabs value={tab} onChange={setTab} tabs={[{ value: "upcoming", label: "Upcoming" }, { value: "past", label: "Past" }]} />
       {items.length === 0 ? <Card><EmptyState icon={LuNotebookPen} title={tab === "upcoming" ? "Nothing due" : "Nothing yet"} /></Card> : (
         <Card bodyClass="">
-          <table className="table">
+          <div className="table-wrap"><table className="table">
             <thead><tr><th>Due</th><th>Class</th><th>Subject</th><th>Title</th><th>Type</th></tr></thead>
             <tbody>
               {(tab === "past" ? items.slice().reverse() : items).map((a) => (
@@ -118,7 +128,7 @@ function FamilyView() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </Card>
       )}
     </>

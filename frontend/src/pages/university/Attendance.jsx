@@ -51,7 +51,7 @@ function Register({ offering }) {
           </div>}
           bodyClass="">
           {rows.length === 0 ? <EmptyState title="No approved students in this section yet">Students appear here once their registration is approved.</EmptyState> : (
-            <table className="table">
+            <div className="table-wrap"><table className="table">
               <thead><tr><th>Student</th><th>Status</th><th>Note</th><th className="num">Attendance so far</th></tr></thead>
               <tbody>
                 {rows.map((r, i) => (
@@ -71,7 +71,7 @@ function Register({ offering }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           )}
         </Card>
       )}

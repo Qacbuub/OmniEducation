@@ -112,7 +112,7 @@ function FamilyView() {
   rows.forEach((r) => { (byChild[r.student_name] ??= []).push(r); });
   return Object.entries(byChild).map(([name, list]) => (
     <Card key={name} title={name} bodyClass="">
-      <table className="table">
+      <div className="table-wrap"><table className="table">
         <thead><tr><th>Term</th><th>Class</th><th className="num">Average</th><th>Grade</th><th className="num">Position</th><th>Subjects</th><th>Published</th><th /></tr></thead>
         <tbody>
           {list.map((r) => (
@@ -125,7 +125,7 @@ function FamilyView() {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </Card>
   ));
 }

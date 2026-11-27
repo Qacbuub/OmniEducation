@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { LuArrowLeft, LuCamera, LuFileText, LuIdCard, LuPencil, LuScrollText, LuTrash2, LuUpload } from "react-icons/lu";
 import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
@@ -364,7 +364,7 @@ function SchoolPanel({ id }) {
         ) : <Spinner />}
       </Card>
       <Card title="Term results" className="span-2" bodyClass="">
-        <table className="table">
+        <div className="table-wrap"><table className="table">
           <thead><tr><th>Term</th><th>Class</th><th className="num">Average</th><th>Grade</th><th className="num">Position</th><th>Status</th><th /></tr></thead>
           <tbody>
             {(results.data?.results || []).map((r) => (
@@ -376,7 +376,7 @@ function SchoolPanel({ id }) {
             ))}
             {results.data?.results?.length === 0 && <tr><td colSpan={7} className="muted">No finalized results yet.</td></tr>}
           </tbody>
-        </table>
+        </table></div>
       </Card>
     </div>
   );
@@ -398,7 +398,7 @@ function UniversityPanel({ id }) {
         ) : standing.loading ? <Spinner /> : <p className="muted">Not matriculated into a program.</p>}
       </Card>
       <Card title="This semester" bodyClass="">
-        <table className="table">
+        <div className="table-wrap"><table className="table">
           <thead><tr><th>Course</th><th className="num">Credits</th><th>Status</th></tr></thead>
           <tbody>
             {(regs.data?.results || []).map((r) => (
@@ -406,7 +406,7 @@ function UniversityPanel({ id }) {
             ))}
             {regs.data?.results?.length === 0 && <tr><td colSpan={3} className="muted">No registrations.</td></tr>}
           </tbody>
-        </table>
+        </table></div>
       </Card>
     </div>
   );
@@ -417,7 +417,8 @@ export default function StudentDetail() {
   const { user, mode } = useAuth();
   const isUni = mode === "university";
   const [tab, setTab] = useState("overview");
-  const [modal, setModal] = useState(null);
+  const [params] = useSearchParams();
+  const [modal, setModal] = useState(params.get("edit") === "1" ? "edit" : null); // ?edit=1 from the list's Edit button
   const student = useApi(`/students/${id}/`);
   const enrollments = useApi("/enrollments/", { student: id });
   const docs = useApi("/documents/", { student: id, page_size: 50 });
@@ -472,7 +473,7 @@ export default function StudentDetail() {
                 <Button size="sm" variant="danger" onClick={() => setModal("withdraw")}>Withdraw</Button>
               </div>
             )}>
-            <table className="table">
+            <div className="table-wrap"><table className="table">
               <thead><tr><th>Period</th><th>{isUni ? "Program" : "Grade"}</th><th>{isUni ? "Year" : "Class"}</th><th>Status</th><th>From</th><th>To</th><th>Reason</th></tr></thead>
               <tbody>
                 {(enrollments.data?.results || []).map((e) => (
@@ -483,7 +484,7 @@ export default function StudentDetail() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           </Card>
         </div>
       )}
@@ -494,7 +495,7 @@ export default function StudentDetail() {
         <Card title="Documents" bodyClass=""
           actions={canDocs && <Button size="sm" icon={LuUpload} onClick={() => setModal("upload")}>Upload</Button>}>
           {docs.data?.results?.length ? (
-            <table className="table">
+            <div className="table-wrap"><table className="table">
               <thead><tr><th>Title</th><th>Type</th><th>Source</th><th>Added</th><th /></tr></thead>
               <tbody>
                 {docs.data.results.map((d) => (
@@ -506,14 +507,14 @@ export default function StudentDetail() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           ) : <EmptyState title="No documents yet">Uploaded and generated documents appear here.</EmptyState>}
         </Card>
       )}
 
       {tab === "fees" && (
         <Card title="Invoices" bodyClass="" actions={<Link className="btn btn--secondary btn--sm" to={`/${mode}/fees`}>Fee ledger</Link>}>
-          <table className="table">
+          <div className="table-wrap"><table className="table">
             <thead><tr><th>Invoice</th><th>Due</th><th className="num">Total</th><th className="num">Paid</th><th className="num">Balance</th><th>Status</th></tr></thead>
             <tbody>
               {(invoices.data?.results || []).map((i) => (
@@ -525,7 +526,7 @@ export default function StudentDetail() {
               ))}
               {invoices.data?.results?.length === 0 && <tr><td colSpan={6} className="muted">No invoices.</td></tr>}
             </tbody>
-          </table>
+          </table></div>
         </Card>
       )}
 

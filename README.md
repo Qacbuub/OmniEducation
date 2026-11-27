@@ -62,7 +62,7 @@ npm run dev                         # http://localhost:5173
 
 Tests (they create their own temporary database; on PostgreSQL the `omniedu` user needs CREATEDB):
 ```bash
-cd backend && pytest               # 95 tests, pass on SQLite and PostgreSQL 16+
+cd backend && pytest               # 98 tests, pass on SQLite and PostgreSQL 16+
 ```
 
 ## Documentation

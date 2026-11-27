@@ -6,7 +6,7 @@ import { can } from "../../config/roles";
 import { useAction, useApi } from "../../utils/hooks";
 import { shortDate, titleCase } from "../../utils/format";
 import { Badge, Button, Card, Field, Modal, PageHeader, Spinner } from "../../components/ui";
-import { ActionFeedback, KeyValues, SelectBox } from "../../components/ui/extra";
+import { ActionFeedback, ConfirmDelete, KeyValues, RowActions, SelectBox } from "../../components/ui/extra";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 export const meetingsText = (o) => o.meetings.map((m) => `${m.day_name} ${m.start_time.slice(0, 5)}–${m.end_time.slice(0, 5)}${m.room ? ` ${m.room}` : ""}`).join(", ");
@@ -75,6 +75,7 @@ export default function Offerings() {
   const semesters = useApi("/universities/semesters/", { page_size: 50 });
   const [semester, setSemester] = useState("");
   const [modal, setModal] = useState(null);
+  const [removing, setRemoving] = useState(null);
   const list = semesters.data?.results || [];
   const sem = list.find((s) => String(s.id) === String(semester)) || list.find((s) => s.is_current) || list[0];
   const offerings = useApi(sem ? "/universities/offerings/" : null, { semester: sem?.id, page_size: 100 });
@@ -95,7 +96,7 @@ export default function Offerings() {
           <Card title={`Sections (${offerings.data?.count ?? "…"})`} bodyClass="">
             <div className="table-wrap">
               <table className="table">
-                <thead><tr><th>Section</th><th>Course</th><th className="num">Credits</th><th>Lecturer</th><th>Meetings</th><th className="num">Seats</th><th>Grades</th><th>Status</th>{manage && <th />}</tr></thead>
+                <thead><tr><th>Section</th><th>Course</th><th className="num">Credits</th><th>Lecturer</th><th>Meetings</th><th className="num">Seats</th><th>Grades</th><th>Status</th>{manage && <th className="num">Actions</th>}</tr></thead>
                 <tbody>
                   {(offerings.data?.results || []).map((o) => (
                     <tr key={o.id}>
@@ -103,7 +104,8 @@ export default function Offerings() {
                       <td>{o.lecturer_name || <span className="muted">—</span>}</td><td className="muted" style={{ fontSize: "var(--fs-xs)" }}>{meetingsText(o) || "—"}</td>
                       <td className="num"><span style={{ color: o.seats_left === 0 ? "var(--danger)" : undefined, fontWeight: 600 }}>{o.enrolled}/{o.capacity}</span></td>
                       <td><Badge tone="neutral">{titleCase(o.grade_status)}</Badge></td><td><Badge>{o.status}</Badge></td>
-                      {manage && <td className="num"><Button size="sm" variant="secondary" onClick={() => setModal({ offering: o })}>Edit</Button></td>}
+                      {manage && <td className="num"><RowActions name={`${o.course_code}-${o.section}`} onEdit={() => setModal({ offering: o })}
+                        onDelete={() => setRemoving(o)} /></td>}
                     </tr>
                   ))}
                 </tbody>
@@ -113,6 +115,13 @@ export default function Offerings() {
         </>
       )}
       {modal && <SectionForm semester={sem.id} offering={modal.offering} onClose={() => setModal(null)} onDone={() => { setModal(null); offerings.reload(); }} />}
+      {removing && (
+        <ConfirmDelete title={`Delete section ${removing.course_code}-${removing.section}`} onConfirm={(reason) => api.delete(`/universities/offerings/${removing.id}/`, { reason })}
+          onClose={(deleted) => { setRemoving(null); if (deleted) offerings.reload(); }}>
+          <p style={{ margin: 0 }}>The section and its weekly meetings are deleted. A section students have registered for can't be
+            deleted; edit it and set its status to Cancelled instead.</p>
+        </ConfirmDelete>
+      )}
     </>
   );
 }

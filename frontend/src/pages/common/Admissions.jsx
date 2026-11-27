@@ -8,7 +8,7 @@ import { useAction, useApi, useDebounced } from "../../utils/hooks";
 import { money, shortDate, timeAgo, titleCase } from "../../utils/format";
 import { Badge, Button, Card, Field, Modal, PageHeader } from "../../components/ui";
 import { DataTable } from "../../components/ui/DataTable";
-import { ActionFeedback, CopyLink, KeyValues, SelectBox } from "../../components/ui/extra";
+import { ActionFeedback, ConfirmDelete, CopyLink, KeyValues, RowActions, SelectBox } from "../../components/ui/extra";
 import { StudentAvatar } from "./StudentDetail";
 
 const STATUSES = ["submitted", "under_review", "approved", "offered", "offer_accepted", "offer_declined", "enrolled",
@@ -34,11 +34,18 @@ const REQUIRED = ["first_name", "last_name", "date_of_birth", "gender", "email",
   "guardian_name", "guardian_relationship", "guardian_phone"];
 const RELATIONSHIPS = ["mother", "father", "guardian", "grandparent", "sibling", "spouse", "uncle", "aunt", "other"];
 
-function NewApplication({ mode, onClose, onDone }) {
+/** New application, or (with `record`) correcting an existing one's details. */
+function NewApplication({ mode, onClose, onDone, record }) {
   const isUni = mode === "university";
   const targets = useApi(isUni ? "/universities/programs/" : "/schools/grade-levels/", { page_size: 100 });
   const years = useApi("/academic-periods/", { kind: "academic_year", page_size: 20 });
-  const [f, setF] = useState(EMPTY_APPLICANT);
+  const [f, setF] = useState(() => (record ? Object.fromEntries(Object.keys(EMPTY_APPLICANT).map((k) => [k,
+    k === "intake_period" ? (record.intake_period ?? "") : (record[k] ?? "")])) : EMPTY_APPLICANT));
+  // The record stores the grade/programme by name: pick the matching option once the list has loaded.
+  useEffect(() => {
+    const match = record && !f.target_id && (targets.data?.results || []).find((o) => o.name === record.requested_level);
+    if (match) setF((x) => ({ ...x, target_id: String(match.id) }));
+  }, [targets.data]); // eslint-disable-line react-hooks/exhaustive-deps
   const [missing, setMissing] = useState({});
   const [photo, setPhoto] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -61,7 +68,7 @@ function NewApplication({ mode, onClose, onDone }) {
     const target = options.find((o) => String(o.id) === String(f.target_id));
     const body = { ...f, requested_level: target?.name || "", target_id: f.target_id || null, intake_period: f.intake_period || null };
     const created = await act.run(async () => {
-      const appRow = await api.post("/admissions/", body);
+      const appRow = record ? await api.patch(`/admissions/${record.id}/`, body) : await api.post("/admissions/", body);
       if (photo) {
         const form = new FormData();
         form.append("photo", photo);
@@ -89,7 +96,7 @@ function NewApplication({ mode, onClose, onDone }) {
   );
   const gapCount = Object.values(missing).filter(Boolean).length;
   return (
-    <Modal title={isUni ? "New applicant" : "New admission application"} onClose={onClose}>
+    <Modal title={record ? `Edit application · ${record.application_no}` : isUni ? "New applicant" : "New admission application"} onClose={onClose}>
       <form onSubmit={submit} noValidate>
         <ActionFeedback act={act} />
         {gapCount > 0 && <p className="field__error" role="alert">Fill in the {gapCount} required field{gapCount > 1 ? "s" : ""} marked below.</p>}
@@ -140,7 +147,7 @@ function NewApplication({ mode, onClose, onDone }) {
 
         <div className="form-actions">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button type="submit" disabled={act.busy}>{act.busy ? "Saving…" : "Submit application"}</Button>
+          <Button type="submit" disabled={act.busy}>{act.busy ? "Saving…" : record ? "Save changes" : "Submit application"}</Button>
         </div>
       </form>
     </Modal>
@@ -386,6 +393,8 @@ export default function Admissions() {
   const q = useDebounced(search);
   const { data, loading, error, reload } = useApi("/admissions/", { search: q, status, page });
   const canDecide = can(user, "admissions.manage");
+  const [editing, setEditing] = useState(null);
+  const [removing, setRemoving] = useState(null);
   const statuses = STATUSES.filter((s) => (mode === "university" ? s !== "approved" : !s.startsWith("offer")));
   const columns = [
     { key: "application_no", header: "Application", render: (a) => (
@@ -395,7 +404,12 @@ export default function Admissions() {
     { key: "source", header: "Source", render: (a) => titleCase(a.source) },
     { key: "submitted_at", header: "Submitted", render: (a) => <span className="muted">{timeAgo(a.submitted_at)}</span> },
     { key: "status", header: "Status", render: (a) => <Badge>{titleCase(a.status)}</Badge> },
-    { key: "open", header: "", className: "num", render: (a) => <Button size="sm" variant="secondary" onClick={() => setOpen(a)}>Review</Button> },
+    { key: "open", header: "Actions", className: "num", render: (a) => (
+      <RowActions name={a.full_name}
+        extra={<Button size="sm" variant="secondary" onClick={() => setOpen(a)}>Review</Button>}
+        onEdit={canDecide && a.status !== "enrolled" ? () => setEditing(a) : undefined}
+        onDelete={canDecide && a.status !== "enrolled" ? () => setRemoving(a) : undefined} />
+    ) },
   ];
   return (
     <>
@@ -416,6 +430,15 @@ export default function Admissions() {
         application there with their reference code.
       </p>
       {params.get("new") === "1" && <NewApplication mode={mode} onClose={() => setParams({})} onDone={() => { setParams({}); reload(); }} />}
+      {editing && <NewApplication mode={mode} record={editing} onClose={() => setEditing(null)} onDone={() => { setEditing(null); reload(); }} />}
+      {removing && (
+        <ConfirmDelete title={`Delete application ${removing.application_no}`} onConfirm={(reason) => api.delete(`/admissions/${removing.id}/`, { reason })}
+          onClose={(deleted) => { setRemoving(null); if (deleted) reload(); }}>
+          <p style={{ marginTop: 0 }}>{removing.full_name}'s application, photo and uploaded documents will be deleted. The applicant's
+            reference code stops working.</p>
+          <p className="muted" style={{ fontSize: "var(--fs-sm)", marginBottom: 0 }}>To keep a record of it, use Reject or Withdrawn in Review instead.</p>
+        </ConfirmDelete>
+      )}
       {open && <ApplicationDetail app={open} mode={mode} canDecide={canDecide} onClose={() => setOpen(null)} onChanged={reload} />}
     </>
   );

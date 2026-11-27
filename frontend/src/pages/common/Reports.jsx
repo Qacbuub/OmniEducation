@@ -43,10 +43,10 @@ function SchoolReports() {
       <div className="grid grid--2">
         <Card title="Attendance by class" subtitle="Daily registers for the selected term" bodyClass="" className="span-2">
           {classes.data ? (
-            <table className="table">
+            <div className="table-wrap"><table className="table">
               <thead><tr><th>Class</th><th>Class teacher</th><th className="num">Pupils</th><th>Attendance</th><th className="num">Rate</th></tr></thead>
               <tbody>{classes.data.results.map((c) => <ClassAttendanceRow key={c.id} c={c} term={activeTerm} />)}</tbody>
-            </table>
+            </table></div>
           ) : <Spinner />}
         </Card>
         <Card title="Results by class" subtitle={`Finalized term results · pass mark ${passMark}%`}>
@@ -56,7 +56,7 @@ function SchoolReports() {
           ) : <p className="muted">No finalized results for this term yet. <Link to="/school/report-cards">Report cards →</Link></p>}
         </Card>
         <Card title="Pass rate by class" bodyClass="">
-          <table className="table">
+          <div className="table-wrap"><table className="table">
             <thead><tr><th>Class</th><th className="num">Pupils</th><th className="num">Average</th><th className="num">Pass rate</th></tr></thead>
             <tbody>
               {Object.entries(bySection).map(([label, s]) => (
@@ -65,7 +65,7 @@ function SchoolReports() {
               ))}
               {!Object.keys(bySection).length && <tr><td colSpan={4} className="muted">—</td></tr>}
             </tbody>
-          </table>
+          </table></div>
         </Card>
       </div>
       <p className="muted" style={{ fontSize: "var(--fs-xs)" }}>{user.tenant.name} · figures update as registers and results are recorded.</p>
@@ -86,7 +86,7 @@ function UniversityReports() {
       </Card>
       <Card title="Enrollment by program"><BarChart data={d.enrollment_by_program} title="Enrollment by program" /></Card>
       <Card title={`Students on academic probation (${probation.data?.count ?? "…"})`} bodyClass="" className="span-2">
-        <table className="table">
+        <div className="table-wrap"><table className="table">
           <thead><tr><th>Student</th><th>ID</th><th>Program</th><th className="num">Year</th><th className="num">CGPA</th><th>Adviser</th></tr></thead>
           <tbody>
             {(probation.data?.results || []).map((s) => (
@@ -97,7 +97,7 @@ function UniversityReports() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </Card>
     </div>
   ) : <Spinner />;

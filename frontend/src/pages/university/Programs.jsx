@@ -6,16 +6,24 @@ import { can } from "../../config/roles";
 import { useAction, useApi, useDebounced } from "../../utils/hooks";
 import { Badge, Button, Card, Field, Modal, PageHeader, Spinner } from "../../components/ui";
 import { DataTable } from "../../components/ui/DataTable";
-import { ActionFeedback, KeyValues, SelectBox, Tabs } from "../../components/ui/extra";
+import { ActionFeedback, ConfirmDelete, KeyValues, RowActions, SelectBox, Tabs } from "../../components/ui/extra";
 
-function NewCourse({ departments, onClose, onDone }) {
-  const [f, setF] = useState({ department: departments[0]?.id || "", code: "", title: "", credit_hours: 3, level: 100, description: "" });
+/** New course, or editing one (`record`). */
+function NewCourse({ departments, onClose, onDone, record }) {
+  const [f, setF] = useState(record
+    ? { department: record.department, code: record.code, title: record.title, credit_hours: record.credit_hours,
+        level: record.level, description: record.description || "", is_active: record.is_active }
+    : { department: departments[0]?.id || "", code: "", title: "", credit_hours: 3, level: 100, description: "" });
   const act = useAction();
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
   const err = (k) => act.error?.fields?.[k]?.[0];
-  async function submit(e) { e.preventDefault(); if (await act.run(() => api.post("/universities/courses/", f))) onDone(); }
+  async function submit(e) {
+    e.preventDefault();
+    const call = record ? () => api.patch(`/universities/courses/${record.id}/`, f) : () => api.post("/universities/courses/", f);
+    if (await act.run(call)) onDone();
+  }
   return (
-    <Modal title="New course" onClose={onClose}>
+    <Modal title={record ? `Edit course · ${record.code}` : "New course"} onClose={onClose}>
       <form onSubmit={submit} noValidate>
         <ActionFeedback act={act} />
         <div className="form-grid">
@@ -27,8 +35,14 @@ function NewCourse({ departments, onClose, onDone }) {
           </Field>
           <Field label="Level">{(a) => <select {...a} className="select" value={f.level} onChange={set("level")}>{[100, 200, 300, 400, 500].map((l) => <option key={l} value={l}>{l}</option>)}</select>}</Field>
           <Field label="Description" className="span-2">{(a) => <textarea {...a} className="textarea" rows={3} value={f.description} onChange={set("description")} />}</Field>
+          {record && (
+            <label className="span-2" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input type="checkbox" checked={f.is_active} onChange={(e) => setF((x) => ({ ...x, is_active: e.target.checked }))} />
+              Active (inactive courses can't get new sections)
+            </label>
+          )}
         </div>
-        <div className="form-actions"><Button variant="secondary" onClick={onClose}>Cancel</Button><Button type="submit" disabled={act.busy}>Create course</Button></div>
+        <div className="form-actions"><Button variant="secondary" onClick={onClose}>Cancel</Button><Button type="submit" disabled={act.busy}>{record ? "Save changes" : "Create course"}</Button></div>
       </form>
     </Modal>
   );
@@ -78,7 +92,10 @@ function Courses({ manage }) {
     { key: "department_name", header: "Department" },
     { key: "prerequisites", header: "Prerequisites", render: (c) => c.prerequisites.length
       ? c.prerequisites.map((p) => <Badge key={p.id} tone="neutral">{p.code}{Number(p.min_grade_points) > 1 ? ` ≥ ${p.min_grade_points}` : ""}</Badge>) : <span className="muted">None</span> },
-    manage && { key: "a", header: "", className: "num", render: (c) => <Button size="sm" variant="secondary" onClick={() => setModal({ kind: "pre", course: c })}>Add prerequisite</Button> },
+    manage && { key: "a", header: "Actions", className: "num", render: (c) => (
+      <RowActions name={c.code} extra={<Button size="sm" variant="secondary" onClick={() => setModal({ kind: "pre", course: c })}>Add prerequisite</Button>}
+        onEdit={() => setModal({ kind: "edit", course: c })} onDelete={() => setModal({ kind: "delete", course: c })} />
+    ) },
   ].filter(Boolean);
   return (
     <>
@@ -89,6 +106,14 @@ function Courses({ manage }) {
             options={(departments.data?.results || []).map((d) => ({ value: d.id, label: d.name }))} />} />
       </Card>
       {modal?.kind === "new" && <NewCourse departments={departments.data?.results || []} onClose={() => setModal(null)} onDone={() => { setModal(null); reload(); }} />}
+      {modal?.kind === "edit" && <NewCourse record={modal.course} departments={departments.data?.results || []} onClose={() => setModal(null)} onDone={() => { setModal(null); reload(); }} />}
+      {modal?.kind === "delete" && (
+        <ConfirmDelete title={`Delete ${modal.course.code} ${modal.course.title}`} onConfirm={(reason) => api.delete(`/universities/courses/${modal.course.id}/`, { reason })}
+          onClose={(deleted) => { setModal(null); if (deleted) reload(); }}>
+          <p style={{ marginTop: 0 }}>The course and its prerequisite links are deleted. A course that has sections or is part of a curriculum
+            can't be deleted; untick Active under Edit instead.</p>
+        </ConfirmDelete>
+      )}
       {modal?.kind === "pre" && <AddPrerequisite course={modal.course} onClose={() => setModal(null)} onDone={() => { setModal(null); reload(); }} />}
     </>
   );
@@ -103,7 +128,7 @@ function ProgramsList() {
   const items = curriculum.data?.items || [];
   const years = [...new Set(items.map((i) => i.recommended_year))].sort();
   return (
-    <div className="grid grid--3-1" style={{ gridTemplateColumns: "300px 1fr" }}>
+    <div className="grid grid--side">
       <Card title="Programs" bodyClass="">
         <ul className="list" style={{ padding: "0 12px" }}>
           {data.results.map((p) => (
@@ -124,14 +149,14 @@ function ProgramsList() {
           {years.map((y) => (
             <div key={y} style={{ marginBottom: 12 }}>
               <div className="select-label" style={{ marginBottom: 4 }}>Year {y}</div>
-              <table className="table">
+              <div className="table-wrap"><table className="table">
                 <tbody>
                   {items.filter((i) => i.recommended_year === y).map((i) => (
                     <tr key={i.id}><td className="mono" style={{ width: 100 }}>{i.code}</td><td>{i.title}</td><td className="num">{i.credits} cr</td>
                       <td><Badge tone={i.category === "core" ? "dark" : "neutral"}>{i.category}</Badge></td><td className="muted">Semester {i.recommended_semester}</td></tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             </div>
           ))}
         </Card>

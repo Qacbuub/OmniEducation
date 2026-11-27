@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { LuDownload } from "react-icons/lu";
+import { LuDownload, LuPencil, LuTrash2 } from "react-icons/lu";
 import { api } from "../../api/client";
 import { useApi, useDebounced } from "../../utils/hooks";
-import { Alert, Button } from "./index";
+import { Alert, Button, Field, Modal } from "./index";
 
 /* ---------------- Tabs ---------------- */
 export function Tabs({ tabs, value, onChange, label = "Sections" }) {
@@ -176,4 +176,77 @@ export function CopyLink({ href, label = "Copy sign-up link" }) {
     catch { window.prompt("Copy this link:", href); }
   };
   return <button type="button" className="link-btn" onClick={copy} title={href}>{copied ? "Copied!" : label}</button>;
+}
+
+
+/** Edit / Delete buttons for a table row. Pass only the handlers the user is allowed to use. */
+export function RowActions({ onEdit, onDelete, editLabel = "Edit", deleteLabel = "Delete", name = "", extra }) {
+  if (!onEdit && !onDelete && !extra) return null;
+  return (
+    <div className="row-actions row-actions--table">
+      {extra}
+      {onEdit && (
+        <button type="button" className="row-btn row-btn--edit" onClick={onEdit} aria-label={`${editLabel} ${name}`.trim()} title={editLabel}>
+          <LuPencil aria-hidden="true" /><span className="row-btn__text">{editLabel}</span>
+        </button>
+      )}
+      {onDelete && (
+        <button type="button" className="row-btn row-btn--delete" onClick={onDelete} aria-label={`${deleteLabel} ${name}`.trim()} title={deleteLabel}>
+          <LuTrash2 aria-hidden="true" /><span className="row-btn__text">{deleteLabel}</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * "Are you sure?" window for deletes, with an optional reason that is saved in the audit history.
+ * `confirmText` (optional): the user must type it (any capitals) for deletes that wipe a lot.
+ * onConfirm(reason) returns a promise; if it fails the window shows the server's message (e.g. "still in use").
+ */
+export function ConfirmDelete({ title, children, confirmText, confirmLabel = "Delete", onConfirm, onClose, askReason = true }) {
+  const [typed, setTyped] = useState("");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const norm = (v) => v.trim().replace(/\s+/g, " ").toLowerCase();
+  const ok = !confirmText || norm(typed) === norm(confirmText);
+  async function go(e) {
+    e.preventDefault();
+    if (!ok) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await onConfirm(reason.trim());
+      onClose(true);
+    } catch (err) {
+      setError(err.message || "The record could not be deleted.");
+      setBusy(false);
+    }
+  }
+  return (
+    <Modal title={title} onClose={() => !busy && onClose(false)}>
+      <form onSubmit={go} noValidate>
+        {error && <Alert tone="error">{error}</Alert>}
+        <div style={{ marginBottom: 12 }}>{children}</div>
+        {askReason && (
+          <Field label="Reason (optional)" hint="Saved in the audit history with your name and the time.">
+            {(a) => <textarea {...a} className="textarea" rows={2} maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. created by mistake, duplicate record" />}
+          </Field>
+        )}
+        {confirmText && (
+          <Field label={<>To confirm, type the name <strong className="confirm-name">{confirmText}</strong></>}
+            error={typed && !ok ? "The name doesn't match yet." : undefined}>
+            {(a) => <input {...a} className="input" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off"
+              placeholder={confirmText} />}
+          </Field>
+        )}
+        <div className="form-actions">
+          <Button variant="secondary" onClick={() => onClose(false)} disabled={busy}>Cancel</Button>
+          <Button type="submit" variant="danger" disabled={!ok || busy}>{busy ? "Deleting…" : confirmLabel}</Button>
+        </div>
+      </form>
+    </Modal>
+  );
 }

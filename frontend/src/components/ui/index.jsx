@@ -114,19 +114,26 @@ export function Field({ label, error, hint, children, className = "", required =
 /* ---------------- Modal ---------------- */
 export function Modal({ title, onClose, children }) {
   const ref = useRef(null);
+  // Keep the latest onClose without re-running the effect: callers often pass a new function on every render,
+  // and re-running it would move the cursor back to the first field after each key press.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     const prev = document.activeElement;
-    ref.current?.querySelector("input, select, textarea, button")?.focus();
-    const onKey = (e) => e.key === "Escape" && onClose();
+    // Start in the first form field; the close button only when the window has no fields.
+    const first = ref.current?.querySelector(".modal__body input:not([type=hidden]), .modal__body select, .modal__body textarea")
+      || ref.current?.querySelector("button");
+    first?.focus();
+    const onKey = (e) => e.key === "Escape" && closeRef.current();
     document.addEventListener("keydown", onKey);
     return () => { document.removeEventListener("keydown", onKey); prev?.focus?.(); };
-  }, [onClose]);
+  }, []);
   return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && closeRef.current()}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" ref={ref}>
         <div className="modal__header">
           <h2 id="modal-title" className="card__title">{title}</h2>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close dialog"><LuX /></button>
+          <button type="button" className="icon-btn" onClick={() => closeRef.current()} aria-label="Close dialog"><LuX /></button>
         </div>
         <div className="modal__body">{children}</div>
       </div>

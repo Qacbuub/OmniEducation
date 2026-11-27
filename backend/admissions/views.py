@@ -13,7 +13,7 @@ from rest_framework.views import APIView
 
 from comms.models import Document
 from comms.services import notify, notify_permission_holders, validate_upload
-from core.audit import log_event
+from core.audit import delete_reason, log_event
 from core.emails import send_notification_email
 from core.exceptions import BusinessRuleViolation
 from core.models import Tenant
@@ -217,7 +217,8 @@ class PublicApplicationDocumentView(APIView):
 
 # ------------------------------------------------------------------ staff review workflow
 class ApplicationViewSet(TenantScopedViewSetMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin,
-                         mixins.CreateModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet):
+                         mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin,
+                         viewsets.GenericViewSet):
     queryset = Application.objects.select_related("reviewed_by", "intake_period")
     serializer_class = ApplicationSerializer
     required_perms = {"list": "admissions.view", "retrieve": "admissions.view", "photo": "admissions.view",
@@ -225,6 +226,17 @@ class ApplicationViewSet(TenantScopedViewSetMixin, mixins.ListModelMixin, mixins
     filterset_fields = ["status", "intake_period", "source"]
     search_fields = ["application_no", "first_name", "last_name", "email", "requested_level"]
     ordering_fields = ["submitted_at", "last_name"]
+
+    def perform_destroy(self, instance):
+        if instance.status == Application.Status.ENROLLED:
+            raise BusinessRuleViolation("This applicant is already enrolled. Manage the student record instead.",
+                                        code="already_enrolled")
+        log_event("application.deleted", request=self.request, target=instance,
+                  changes={"application_no": instance.application_no, "name": instance.full_name,
+                           "reason": delete_reason(self.request)})
+        if instance.photo:
+            instance.photo.delete(save=False)
+        instance.delete()
     audit_name = "application"
 
     def perform_create(self, serializer):

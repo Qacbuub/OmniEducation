@@ -24,3 +24,12 @@ def log_event(action, *, request=None, actor=None, tenant=None, target=None, cha
         changes=changes or {},
         ip_address=client_ip(request),
     )
+
+
+def delete_reason(request):
+    """The optional reason someone gave when deleting a record (sent in the DELETE body), for the audit log."""
+    try:
+        data = request.data
+    except Exception:  # noqa: BLE001 - an unreadable body just means no reason
+        return ""
+    return str(data.get("reason", "") if hasattr(data, "get") else "").strip()[:300]

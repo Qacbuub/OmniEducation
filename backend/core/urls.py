@@ -24,6 +24,8 @@ urlpatterns = [
     path("tenants/current/", views.CurrentTenantView.as_view(), name="tenant-current"),
     path("platform/stats/", views.PlatformStatsView.as_view(), name="platform-stats"),
     path("platform/invitations/", views.PlatformInvitationListView.as_view(), name="platform-invitations"),
+    path("platform/invitations/<int:pk>/", views.PlatformInvitationDetailView.as_view(),
+         name="platform-invitation-detail"),
     path("platform/audit/", views.PlatformAuditView.as_view(), name="platform-audit"),
     path("audit/", views.AuditLogView.as_view(), name="audit"),
     *router.urls,

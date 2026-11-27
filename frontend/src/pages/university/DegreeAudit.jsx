@@ -11,7 +11,7 @@ import { useRecordSubject } from "./Transcript";
 
 function CourseTable({ rows }) {
   return (
-    <table className="table">
+    <div className="table-wrap"><table className="table">
       <thead><tr><th>Code</th><th>Course</th><th className="num">Credits</th><th>Year</th><th>Status</th><th>Grade</th></tr></thead>
       <tbody>
         {rows.map((r) => (
@@ -22,7 +22,7 @@ function CourseTable({ rows }) {
           </tr>
         ))}
       </tbody>
-    </table>
+    </table></div>
   );
 }
 
@@ -85,7 +85,7 @@ function Clearances() {
       <ActionFeedback act={act} />
       <Card bodyClass="">
         {!data?.results?.length ? <EmptyState title="No clearance requests" /> : (
-          <table className="table">
+          <div className="table-wrap"><table className="table">
             <thead><tr><th>Student</th><th>Requested</th><th className="num">CGPA</th><th className="num">Credits</th><th className="num">Fee balance at request</th><th>Status</th><th /></tr></thead>
             <tbody>
               {data.results.map((c) => (
@@ -100,7 +100,7 @@ function Clearances() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </Card>
       <p className="muted" style={{ fontSize: "var(--fs-sm)" }}>Clearing re-checks the degree audit and refuses students with outstanding fees. Cleared students are marked as graduated.</p>

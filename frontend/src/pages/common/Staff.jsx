@@ -7,7 +7,20 @@ import { useAction, useApi, useDebounced } from "../../utils/hooks";
 import { shortDate } from "../../utils/format";
 import { Alert, Badge, Button, Card, Field, Modal, PageHeader, PersonCell } from "../../components/ui";
 import { DataTable } from "../../components/ui/DataTable";
-import { ActionFeedback, CopyLink, Tabs } from "../../components/ui/extra";
+import { ActionFeedback, ConfirmDelete, CopyLink, RowActions, Tabs } from "../../components/ui/extra";
+import { RecordForm } from "../../components/ui/Crud";
+
+const STAFF_FIELDS = [
+  { key: "first_name", label: "First name", required: true },
+  { key: "last_name", label: "Last name", required: true },
+  { key: "email", label: "Contact email", type: "text" },
+  { key: "phone", label: "Phone", type: "text" },
+  { key: "job_title", label: "Job title", type: "text" },
+  { key: "department", label: "Department", type: "text" },
+  { key: "hire_date", label: "Hire date", type: "date" },
+  { key: "status", label: "Status", type: "select", required: true,
+    options: [["active", "Active"], ["on_leave", "On leave"], ["left", "Left"]] },
+];
 
 const STAFF_ROLES = {
   school: ["inst_admin", "principal", "registrar", "class_teacher", "subject_teacher", "finance_officer"],
@@ -60,6 +73,8 @@ export default function Staff() {
   const invites = useApi(manage ? "/invitations/" : "/staff/", { page_size: 50 });
   const act = useAction();
   const [notice, setNotice] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [removing, setRemoving] = useState(null);
 
   const columns = [
     { key: "name", header: "Name", render: (s) => <PersonCell name={`${s.first_name} ${s.last_name}`} sub={s.account_email || s.email} /> },
@@ -68,6 +83,10 @@ export default function Staff() {
     { key: "role", header: "Role", render: (s) => s.role ? ROLE_LABELS[s.role] : <span className="muted">No account</span> },
     { key: "hire_date", header: "Hired", render: (s) => shortDate(s.hire_date) },
     { key: "status", header: "Status", render: (s) => <Badge>{s.status}</Badge> },
+    ...(manage ? [{ key: "actions", header: "Actions", className: "num", render: (s) => (
+      <RowActions name={`${s.first_name} ${s.last_name}`} onEdit={() => setEditing(s)}
+        onDelete={s.account_email === user.email ? undefined : () => setRemoving(s)} />
+    ) }] : []),
   ];
   const revoke = async (inv) => {
     if (window.confirm(`Cancel the invitation for ${inv.email}?`) &&
@@ -80,6 +99,19 @@ export default function Staff() {
         actions={manage && <Button icon={LuMailPlus} onClick={() => setInviting(true)}>Invite staff</Button>} />
       <ActionFeedback act={act} />
       {notice && <Alert tone="success">{notice}</Alert>}
+      {editing && (
+        <RecordForm title={`Edit · ${editing.first_name} ${editing.last_name}`} path="/staff/" record={editing} fields={STAFF_FIELDS}
+          onClose={() => setEditing(null)} onDone={() => { setEditing(null); setNotice("Staff details saved."); staff.reload(); }} />
+      )}
+      {removing && (
+        <ConfirmDelete title={`Delete ${removing.first_name} ${removing.last_name}`} confirmLabel="Delete staff member"
+          onConfirm={(reason) => api.delete(`/staff/${removing.id}/`, { reason })}
+          onClose={(deleted) => { if (deleted) { setNotice(`${removing.first_name} ${removing.last_name} was deleted.`); staff.reload(); } setRemoving(null); }}>
+          <p style={{ marginTop: 0 }}>This removes the staff profile ({removing.staff_no}) and {removing.account_email ? `the sign-in ${removing.account_email}` : "the profile's details"}.
+            Classes and sections they teach become unassigned; marks and records they entered stay.</p>
+          <p className="muted" style={{ fontSize: "var(--fs-sm)", marginBottom: 0 }}>To keep the history of who did what, set the status to Left instead.</p>
+        </ConfirmDelete>
+      )}
       {manage && <Tabs value={tab} onChange={setTab} tabs={[{ value: "staff", label: "Staff", count: staff.data?.count },
         { value: "invites", label: "Invitations", count: invites.data?.count }]} />}
       {tab === "staff" ? (
@@ -89,7 +121,7 @@ export default function Staff() {
         </Card>
       ) : (
         <Card bodyClass="">
-          <table className="table">
+          <div className="table-wrap"><table className="table">
             <thead><tr><th>Email</th><th>Name</th><th>Role</th><th>Status</th><th>Expires</th><th /></tr></thead>
             <tbody>
               {(invites.data?.results || []).map((i) => (
@@ -104,7 +136,7 @@ export default function Staff() {
               ))}
               {invites.data?.results?.length === 0 && <tr><td colSpan={6} className="muted">No invitations.</td></tr>}
             </tbody>
-          </table>
+          </table></div>
         </Card>
       )}
       {inviting && <InviteStaff mode={mode} onClose={() => setInviting(false)}

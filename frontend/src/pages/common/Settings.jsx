@@ -79,7 +79,7 @@ export default function Settings() {
           actions={<Button size="sm" variant="secondary" icon={LuPlus}
             onClick={() => setF((x) => ({ ...x, grading_scale: [...x.grading_scale, { min: 0, grade: "", points: 0, remark: "" }] }))}>Add band</Button>}>
           {err("grading_scale") && <Alert tone="error">{err("grading_scale")}</Alert>}
-          <table className="table">
+          <div className="table-wrap"><table className="table">
             <thead><tr><th>Min %</th><th>Grade</th><th>Points</th>{!isUni && <th>Remark</th>}<th /></tr></thead>
             <tbody>
               {f.grading_scale.map((b, i) => (
@@ -93,7 +93,7 @@ export default function Settings() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </Card>
         <Card title="Academic policies" className="span-2" subtitle="Enforced by the server for every request.">
           {err("policies") && <Alert tone="error">{err("policies")}</Alert>}

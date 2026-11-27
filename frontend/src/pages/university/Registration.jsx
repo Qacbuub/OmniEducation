@@ -48,7 +48,7 @@ function StudentRegistration({ studentId, name }) {
       <ActionFeedback act={act} />
       <Card title={`${name ? `${name} · ` : ""}${s.semester.name} registrations`} bodyClass="">
         {active.length === 0 ? <EmptyState title="No courses yet">Pick sections from the list below.</EmptyState> : (
-          <table className="table">
+          <div className="table-wrap"><table className="table">
             <thead><tr><th>Course</th><th className="num">Credits</th><th>Section</th><th>Lecturer</th><th>Status</th><th>Attempt</th><th /></tr></thead>
             <tbody>
               {active.map((r) => (
@@ -60,7 +60,7 @@ function StudentRegistration({ studentId, name }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </Card>
       <Card title="Open sections" subtitle="The server checks prerequisites, seats, timetable clashes, the credit limit and the add/drop window." bodyClass="">
@@ -111,7 +111,7 @@ function Approvals() {
       <ActionFeedback act={act} />
       <Card title={`Waiting for approval (${rows.length})`} subtitle="Advisers see their own advisees; the registrar sees everyone." bodyClass="">
         {rows.length === 0 ? <EmptyState title="Nothing waiting" /> : (
-          <table className="table">
+          <div className="table-wrap"><table className="table">
             <thead><tr><th>Student</th><th>Course</th><th className="num">Credits</th><th>Requested</th><th>Note to student</th><th /></tr></thead>
             <tbody>
               {rows.map((r) => (
@@ -128,7 +128,7 @@ function Approvals() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </Card>
     </>

@@ -75,7 +75,7 @@ export default function Transcript() {
           </div>
           {d.semesters.length === 0 ? <Card><EmptyState title="No approved grades yet" /></Card> : d.semesters.map((s) => (
             <Card key={s.semester_id} title={s.semester} subtitle={`Semester GPA ${s.gpa ?? "—"} · ${s.credits} credits · CGPA to date ${s.cgpa_to_date ?? "—"}`} bodyClass="">
-              <table className="table">
+              <div className="table-wrap"><table className="table">
                 <thead><tr><th>Code</th><th>Course</th><th className="num">Credits</th><th className="num">Score</th><th>Grade</th><th className="num">Points</th><th /></tr></thead>
                 <tbody>
                   {s.entries.map((e) => (
@@ -90,7 +90,7 @@ export default function Transcript() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             </Card>
           ))}
         </>

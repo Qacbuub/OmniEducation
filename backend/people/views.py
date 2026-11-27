@@ -12,7 +12,8 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from core import emails
-from core.audit import log_event
+from core.audit import delete_reason, log_event
+from core.exceptions import BusinessRuleViolation
 from core.models import Invitation, Role, User
 from core.serializers import invite_link
 from core.permissions import AUTHENTICATED
@@ -116,9 +117,37 @@ class StudentViewSet(TenantScopedViewSetMixin, viewsets.ModelViewSet):
         obj = serializer.save()
         log_event("student.created", request=self.request, target=obj, changes={"student_no": obj.student_no})
 
+    # Records that only describe a student's setup; anything else (payments, attendance, marks, results,
+    # registrations, transcript) is history, and a student with history is withdrawn, never deleted.
+    SETUP_ONLY = {"emergencycontact", "guardianlink", "enrollment", "document", "classplacement",
+                  "academicstanding", "invoice"}
+
     def perform_destroy(self, instance):
-        # Students are never hard-deleted: history, grades and invoices depend on them.
-        raise ValidationError({"detail": ["Students cannot be deleted. Use withdrawal or transfer instead."]})
+        from finance.models import Invoice
+
+        history = {}
+        for rel in type(instance)._meta.related_objects:
+            model = rel.related_model
+            if model._meta.model_name in self.SETUP_ONLY:
+                continue
+            n = model._base_manager.filter(**{rel.field.name: instance}).count()
+            if n:
+                history[model._meta.verbose_name_plural] = n
+        if history:
+            what = ", ".join(f"{n} {label}" for label, n in history.items())
+            raise BusinessRuleViolation(
+                f"{instance.person.full_name} already has records ({what}), so the profile can't be deleted. "
+                "Set the status to Withdrawn or Transferred instead; that keeps the history.", code="has_history")
+        person, user = instance.person, instance.user
+        log_event("student.deleted", request=self.request, target=instance,
+                  changes={"student_no": instance.student_no, "name": person.full_name,
+                           "reason": delete_reason(self.request)})
+        Invoice.objects.filter(student=instance).delete()  # unpaid only: payments count as history above
+        instance.delete()
+        if not hasattr(person, "guardian") and not hasattr(person, "staff"):
+            person.delete()
+        if user is not None and user.role and user.role.code in ("pupil", "student"):
+            user.delete()  # the student's own sign-in goes with the profile
 
     @action(detail=False, methods=["get"])
     def export(self, request):
@@ -217,3 +246,18 @@ class StaffViewSet(TenantScopedViewSetMixin, viewsets.ModelViewSet):
     required_perms = {"*": "staff.manage", "list": "staff.view", "retrieve": "staff.view"}
     search_fields = ["staff_no", "person__first_name", "person__last_name", "job_title", "department"]
     filterset_fields = ["status", "department"]
+
+    def perform_destroy(self, instance):
+        """Remove a staff member and their sign-in. Classes and sections they taught become unassigned;
+        records they entered keep their values (the link to the person is cleared)."""
+        if instance.user_id and instance.user_id == self.request.user.id:
+            raise BusinessRuleViolation("You can't delete your own account.", code="self_delete")
+        person, user = instance.person, instance.user
+        log_event("staff.deleted", request=self.request, target=instance,
+                  changes={"staff_no": instance.staff_no, "name": person.full_name,
+                           "email": getattr(user, "email", ""), "reason": delete_reason(self.request)})
+        instance.delete()
+        if not hasattr(person, "student") and not hasattr(person, "guardian"):
+            person.delete()
+        if user is not None:
+            user.delete()

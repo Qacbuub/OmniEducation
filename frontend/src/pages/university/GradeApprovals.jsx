@@ -59,7 +59,7 @@ export default function GradeApprovals() {
         )
       ) : (
         <Card bodyClass="">
-          <table className="table">
+          <div className="table-wrap"><table className="table">
             <thead><tr><th>When</th><th>Section</th><th>Action</th><th>By</th><th>Notes</th></tr></thead>
             <tbody>
               {(data?.history || []).map((h) => (
@@ -71,7 +71,7 @@ export default function GradeApprovals() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </Card>
       )}
     </>

@@ -30,7 +30,7 @@ function MarkSheet({ assessmentId, onSaved }) {
       bodyClass="">
       <div style={{ padding: "0 20px" }}><ActionFeedback act={act} /></div>
       {locked && <div style={{ padding: "12px 20px 0" }}><Alert tone="info"><LuLock aria-hidden="true" /> This term's results are finalized, so marks are locked.</Alert></div>}
-      <table className="table">
+      <div className="table-wrap"><table className="table">
         <thead><tr><th>Pupil</th><th className="num">Score / {a.max_score}</th><th className="num">%</th><th>Remark</th></tr></thead>
         <tbody>
           {rows.map((r, i) => {
@@ -50,7 +50,7 @@ function MarkSheet({ assessmentId, onSaved }) {
             );
           })}
         </tbody>
-      </table>
+      </table></div>
     </Card>
   );
 }

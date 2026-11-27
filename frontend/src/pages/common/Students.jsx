@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { LuUserPlus } from "react-icons/lu";
 import { useAuth } from "../../auth/AuthContext";
 import { useApi, useDebounced } from "../../utils/hooks";
 import { money } from "../../utils/format";
-import { Badge, Card, PageHeader, PersonCell } from "../../components/ui";
-import { DownloadButton } from "../../components/ui/extra";
+import { api } from "../../api/client";
+import { Alert, Badge, Card, PageHeader, PersonCell } from "../../components/ui";
+import { ConfirmDelete, DownloadButton, RowActions } from "../../components/ui/extra";
 import { can } from "../../config/roles";
 import { DataTable } from "../../components/ui/DataTable";
 
@@ -18,7 +19,11 @@ export default function Students() {
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const q = useDebounced(search);
-  const { data, loading, error } = useApi("/students/", { search: q, status, page });
+  const { data, loading, error, reload } = useApi("/students/", { search: q, status, page });
+  const navigate = useNavigate();
+  const [removing, setRemoving] = useState(null);
+  const [notice, setNotice] = useState(null);
+  const manage = can(user, "students.manage");
   const currency = user.tenant?.currency || (isUni ? "USD" : "KES");
 
   const columns = [
@@ -37,6 +42,10 @@ export default function Students() {
       <span style={{ color: s.balance > 0 ? "var(--danger)" : "var(--success)", fontWeight: 600 }}>{money(s.balance, currency)}</span>
     )},
     { key: "status", header: "Status", render: (s) => <Badge>{s.status}</Badge> },
+    ...(manage ? [{ key: "actions", header: "Actions", className: "num", render: (s) => (
+      <RowActions name={`${s.first_name} ${s.last_name}`} onEdit={() => navigate(`/${mode}/students/${s.id}?edit=1`)}
+        onDelete={() => setRemoving(s)} />
+    ) }] : []),
   ];
 
   return (
@@ -52,6 +61,17 @@ export default function Students() {
           )}
         </>}
       />
+      {notice && <Alert tone="success">{notice}</Alert>}
+      {removing && (
+        <ConfirmDelete title={`Delete ${removing.first_name} ${removing.last_name}`}
+          onConfirm={(reason) => api.delete(`/students/${removing.id}/`, { reason })}
+          onClose={(deleted) => { if (deleted) { setNotice(`${removing.first_name} ${removing.last_name} was deleted.`); reload(); } setRemoving(null); }}>
+          <p style={{ marginTop: 0 }}>This removes the profile ({removing.student_no}), the {isUni ? "student's" : "pupil's"} own sign-in, guardian links
+            and any unpaid invoices. Use it for a record created by mistake.</p>
+          <p className="muted" style={{ fontSize: "var(--fs-sm)", marginBottom: 0 }}>A {isUni ? "student" : "pupil"} who already has payments, attendance, marks or
+            results can't be deleted: open the profile and set the status to Withdrawn or Transferred instead, which keeps the history.</p>
+        </ConfirmDelete>
+      )}
       <Card bodyClass="">
         <DataTable
           caption={isUni ? "Students" : "Pupils"}

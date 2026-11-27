@@ -39,7 +39,7 @@ export default function MyCourses() {
                       : "No marks entered yet"} />
                 </div>
                 {c.assessments.length === 0 ? <p className="muted" style={{ padding: "0 16px 16px" }}>Your lecturer hasn't set up assessments yet.</p> : (
-                  <table className="table">
+                  <div className="table-wrap"><table className="table">
                     <thead><tr><th>Assessment</th><th className="num">Weight</th><th>Due</th><th className="num">Score</th></tr></thead>
                     <tbody>
                       {c.assessments.map((a) => (
@@ -51,7 +51,7 @@ export default function MyCourses() {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </table></div>
                 )}
               </Card>
             );

@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { LuPlus, LuSchool, LuGraduationCap } from "react-icons/lu";
 import { api } from "../../api/client";
 import { useApi, useDebounced } from "../../utils/hooks";
 import { Alert, Badge, Button, Card, Field, Modal, PageHeader } from "../../components/ui";
 import { shortDate } from "../../utils/format";
 import { DataTable } from "../../components/ui/DataTable";
+import { ConfirmDelete, RowActions } from "../../components/ui/extra";
 
 const EMPTY = { name: "", slug: "", type: "school", city: "", country: "", plan: "Starter", admin_email: "" };
 
@@ -92,6 +93,8 @@ export default function Institutions() {
   const [notice, setNotice] = useState(location.state?.flash || null); // e.g. "X and all of its data were deleted."
   const q = useDebounced(search);
   const { data, loading, error, reload } = useApi("/tenants/", { search: q, type, page });
+  const navigate = useNavigate();
+  const [removing, setRemoving] = useState(null);
   const creating = params.get("new") === "1";
   const closeCreate = () => setParams({}, { replace: true });
 
@@ -105,6 +108,9 @@ export default function Institutions() {
     { key: "students", header: "Students", className: "num" },
     { key: "status", header: "Status", render: (t) => <Badge>{t.status}</Badge> },
     { key: "created_at", header: "Created", render: (t) => <span className="muted">{shortDate(t.created_at)}</span> },
+    { key: "actions", header: "Actions", className: "num", render: (t) => (
+      <RowActions name={t.name} onEdit={() => navigate(`/platform/institutions/${t.id}`)} onDelete={() => setRemoving(t)} />
+    ) },
   ];
 
   return (
@@ -116,6 +122,15 @@ export default function Institutions() {
         actions={<Button icon={LuPlus} onClick={() => setParams({ new: "1" })}>New institution</Button>}
       />
       {notice && <Alert tone="success">{notice}</Alert>}
+      {removing && (
+        <ConfirmDelete title={`Delete ${removing.name}`} confirmText={removing.name} confirmLabel="Delete permanently"
+          onConfirm={async (reason) => { const r = await api.delete(`/tenants/${removing.id}/`, { confirm_name: removing.name, reason }); setNotice(r.message); }}
+          onClose={(deleted) => { setRemoving(null); if (deleted) reload(); }}>
+          <Alert tone="error">This permanently deletes {removing.name} and everything in it: {removing.students} student
+            {removing.students === 1 ? "" : "s"}, its users, marks, fees and audit history. It cannot be undone.</Alert>
+          <p className="muted" style={{ fontSize: "var(--fs-sm)" }}>To stop access but keep the data, open it and set the status to Suspended instead.</p>
+        </ConfirmDelete>
+      )}
       <Card bodyClass="">
         <DataTable
           caption="Institutions"

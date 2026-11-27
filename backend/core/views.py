@@ -24,7 +24,8 @@ from rest_framework_simplejwt.token_blacklist.models import (
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from . import emails, mfa
-from .audit import log_event
+from .audit import delete_reason, log_event
+from .exceptions import BusinessRuleViolation
 from .models import AuditEvent, Invitation, Tenant, User
 from .permissions import AUTHENTICATED, IsPlatformAdmin, IsTenantUser, RolePermission
 from .serializers import (
@@ -311,7 +312,8 @@ class TenantViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cre
         from .tenancy import delete_tenant
 
         tenant = self.get_object()
-        if str(request.data.get("confirm_name", "")).strip() != tenant.name:
+        typed = " ".join(str(request.data.get("confirm_name", "")).split()).casefold()
+        if typed != " ".join(tenant.name.split()).casefold():
             raise ValidationError({"confirm_name": [f"Type the institution's name exactly as shown ({tenant.name}) "
                                                     "to confirm."]})
         name, slug, kind = tenant.name, tenant.slug, tenant.type
@@ -319,7 +321,8 @@ class TenantViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cre
             counts = delete_tenant(tenant)
             # Recorded at platform level: the institution's own audit history is deleted with it.
             log_event("tenant.deleted", request=request, changes={
-                "name": name, "slug": slug, "type": kind, "rows_deleted": sum(counts.values())})
+                "name": name, "slug": slug, "type": kind, "rows_deleted": sum(counts.values()),
+                "reason": delete_reason(request)})
         return Response({"message": f"{name} and all of its data were deleted.",
                          "rows_deleted": sum(counts.values())})
 
@@ -339,6 +342,20 @@ class TenantViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cre
         emails.send_invitation(inv)
         log_event("invitation.sent", request=request, tenant=tenant, target=inv, changes={"email": inv.email})
         return Response(InvitationSerializer(inv).data, status=status.HTTP_201_CREATED)
+
+
+class PlatformInvitationDetailView(generics.DestroyAPIView):
+    """Cancel a pending institution-administrator invitation (its link stops working)."""
+
+    permission_classes = [IsAuthenticated, IsPlatformAdmin]
+    queryset = Invitation.objects.filter(role__code="inst_admin")
+
+    def perform_destroy(self, instance):
+        if instance.status != "pending":
+            raise BusinessRuleViolation("Only pending invitations can be cancelled.", code="not_pending")
+        log_event("invitation.revoked", request=self.request, tenant=instance.tenant, target=instance,
+                  changes={"email": instance.email, "reason": delete_reason(self.request)})
+        instance.delete()
 
 
 class PlatformInvitationListView(generics.ListAPIView):

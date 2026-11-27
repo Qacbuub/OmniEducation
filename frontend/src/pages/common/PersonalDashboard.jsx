@@ -155,7 +155,7 @@ function LecturerHome() {
       <div className="grid grid--3-1">
         <Card title="My sections" subtitle={tt.data?.semester?.name} bodyClass="">
           {!mine.data ? <Spinner /> : current.length === 0 ? <EmptyState title="No sections assigned this semester" /> : (
-            <table className="table">
+            <div className="table-wrap"><table className="table">
               <thead><tr><th>Section</th><th className="num">Students</th><th>Grades</th><th /></tr></thead>
               <tbody>
                 {current.map((o) => (
@@ -167,7 +167,7 @@ function LecturerHome() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           )}
         </Card>
         <TodayClasses items={tt.data?.meetings?.map((m) => ({ ...m, title: `${m.course_code}-${m.section}`, sub: m.course_title }))} />
@@ -309,7 +309,7 @@ function TeacherHome() {
       <div className="grid grid--3-1">
         <Card title="My classes" bodyClass="">
           {!classes.data ? <Spinner /> : rows.length === 0 ? <EmptyState title="No classes assigned yet" /> : (
-            <table className="table">
+            <div className="table-wrap"><table className="table">
               <thead><tr><th>Class</th><th>My subjects</th><th className="num">Pupils</th><th /></tr></thead>
               <tbody>
                 {rows.map((c) => (
@@ -324,7 +324,7 @@ function TeacherHome() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           )}
         </Card>
         <TodayClasses items={(tt.data || []).map((l) => ({ ...l, title: `${l.subject_name} · ${l.section_label}`, sub: `Period ${l.period_no}` }))} />

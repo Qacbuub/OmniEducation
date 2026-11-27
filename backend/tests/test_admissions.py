@@ -203,3 +203,14 @@ def test_applicant_adds_photo_and_documents_until_decided(anon, client_for, make
     late = anon.post(base + "documents/", {"file": SimpleUploadedFile("late.pdf", b"%PDF-1.4")}, format="multipart")
     assert late.status_code == 404
     assert anon.get(base).data["can_upload"] is False
+
+
+def test_staff_correct_an_applications_details(client_for, make_user, school):
+    admin = client_for(make_user("adm@s.edu", "inst_admin", school))
+    app = admin.post("/api/admissions/", APPLICANT, format="json").data
+    r = admin.patch(f"/api/admissions/{app['id']}/", {**APPLICANT, "last_name": "Otieno-Kamau",
+                                                       "phone": "+254700123456"}, format="json")
+    assert r.status_code == 200, r.data
+    assert r.data["full_name"].endswith("Otieno-Kamau") and r.data["requested_level"] == "Grade 1"
+    bad = admin.patch(f"/api/admissions/{app['id']}/", {"phone": "call me"}, format="json")
+    assert bad.status_code == 400 and "phone" in bad.data["fields"]

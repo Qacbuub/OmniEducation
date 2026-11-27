@@ -66,5 +66,6 @@ export function useAction() {
     }
   }, []);
   const clear = useCallback(() => setState({ busy: false, error: null, notice: null }), []);
-  return { ...state, run, clear };
+  const say = useCallback((notice) => setState({ busy: false, error: null, notice }), []); // show a success line
+  return { ...state, run, clear, say };
 }

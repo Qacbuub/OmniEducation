@@ -181,7 +181,7 @@ function PlanForm({ plan, currency, onClose, onDone }) {
         </div>
         <h3 className="form-section">Fee items</h3>
         {locked && <p className="muted" style={{ fontSize: "var(--fs-xs)" }}>Items are locked because invoices were already issued from this plan.</p>}
-        <table className="table">
+        <div className="table-wrap"><table className="table">
           <thead><tr><th>Description</th><th className="num">Amount ({currency})</th><th /></tr></thead>
           <tbody>
             {f.items.map((it, i) => (
@@ -197,7 +197,7 @@ function PlanForm({ plan, currency, onClose, onDone }) {
             ))}
             <tr><td><strong>Total</strong></td><td className="num"><strong>{money(total, currency)}</strong></td><td /></tr>
           </tbody>
-        </table>
+        </table></div>
         {itemErrors && <p className="field__error">{[].concat(itemErrors).map((x) => (typeof x === "string" ? x : Object.values(x).flat().join(" "))).filter(Boolean).join(" ")}</p>}
         {!locked && <Button size="sm" variant="secondary" onClick={() => setF((x) => ({ ...x, items: [...x.items, { description: "", amount: "" }] }))}>Add item</Button>}
         <div className="form-actions">
@@ -228,7 +228,7 @@ function Plans({ currency }) {
       <ActionFeedback act={act} />
       <Card bodyClass="" title="Fee plans" subtitle="A fee plan lists the charges for a term or semester; issuing it creates one invoice per student."
         actions={manage && <Button size="sm" icon={LuPlus} onClick={() => setEditing({})}>New fee plan</Button>}>
-        <table className="table">
+        <div className="table-wrap"><table className="table">
           <thead><tr><th>Fee plan</th><th>Period</th><th>Applies to</th><th>Items</th><th className="num">Total</th><th className="num">Invoices</th><th /></tr></thead>
           <tbody>
             {(data?.results || []).map((p) => (
@@ -244,7 +244,7 @@ function Plans({ currency }) {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
         {data?.results?.length === 0 && <EmptyState title="No fee plans yet" />}
       </Card>
       {editing && <PlanForm plan={editing} currency={currency} onClose={() => setEditing(null)} onDone={() => { setEditing(null); reload(); }} />}
@@ -271,7 +271,7 @@ function Arrears({ mode }) {
         </div>
       </Card>
       <Card title="Students with balances" bodyClass="">
-        <table className="table">
+        <div className="table-wrap"><table className="table">
           <thead><tr><th>Student</th><th>ID</th><th>{mode === "university" ? "Program" : "Grade"}</th><th className="num">Invoices</th><th className="num">Outstanding</th><th className="num">Overdue</th></tr></thead>
           <tbody>
             {data.results.map((r) => (
@@ -282,7 +282,7 @@ function Arrears({ mode }) {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </Card>
     </>
   ) : null;

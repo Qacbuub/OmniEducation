@@ -13,7 +13,7 @@ from django.db import models
 from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
 
-from .audit import log_event
+from .audit import delete_reason, log_event
 from .permissions import IsTenantUser, RolePermission
 
 
@@ -80,7 +80,9 @@ class TenantScopedViewSetMixin:
                   changes=jsonable(serializer.validated_data))
 
     def perform_destroy(self, instance):
-        log_event(f"{self._audit_name()}.deleted", request=self.request, target=instance)
+        reason = delete_reason(self.request)
+        log_event(f"{self._audit_name()}.deleted", request=self.request, target=instance,
+                  changes={"reason": reason} if reason else None)
         instance.delete()
 
 

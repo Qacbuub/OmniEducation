@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { LuPencil, LuPlus, LuTrash2 } from "react-icons/lu";
+import { LuPlus } from "react-icons/lu";
 import { api } from "../../api/client";
 import { useAction, useApi } from "../../utils/hooks";
 import { Button, Card, EmptyState, Field, Modal, Spinner } from "./index";
-import { ActionFeedback } from "./extra";
+import { ActionFeedback, ConfirmDelete, RowActions } from "./extra";
 
 /**
  * Generic list + create/edit/delete card for simple setup records (grade levels, subjects,
@@ -23,11 +23,8 @@ export function CrudCard({
   const [editing, setEditing] = useState(null); // {} for new, row for edit
   const act = useAction();
   const rows = list.data?.results || (Array.isArray(list.data) ? list.data : []);
+  const [removing, setRemoving] = useState(null);
   const done = () => { setEditing(null); list.reload(); onChanged?.(); };
-  async function remove(row) {
-    if (!window.confirm(deleteConfirm(row))) return;
-    if ((await act.run(() => api.delete(`${path}${row.id}/`), "Deleted.")) !== undefined) { list.reload(); onChanged?.(); }
-  }
   return (
     <Card title={title} subtitle={subtitle} bodyClass=""
       actions={canEdit && <Button size="sm" icon={LuPlus} onClick={() => setEditing({})}>{newLabel}</Button>}>
@@ -37,15 +34,15 @@ export function CrudCard({
       ) : (
         <div className="table-wrap">
           <table className="table">
-            <thead><tr>{columns.map((c) => <th key={c.key} className={c.className}>{c.header}</th>)}<th /></tr></thead>
+            <thead><tr>{columns.map((c) => <th key={c.key} className={c.className}>{c.header}</th>)}<th className="num">{(canEdit || canDelete) ? "Actions" : ""}</th></tr></thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id}>
                   {columns.map((c) => <td key={c.key} className={c.className}>{c.render ? c.render(row) : (row[c.key] ?? "—")}</td>)}
                   <td className="num" style={{ whiteSpace: "nowrap" }}>
-                    {rowActions?.(row, list.reload)}
-                    {canEdit && editable(row) && <Button size="sm" variant="ghost" icon={LuPencil} aria-label={`Edit ${row.name || row.code || ""}`} onClick={() => setEditing(row)}>Edit</Button>}
-                    {canDelete && editable(row) && <Button size="sm" variant="ghost" icon={LuTrash2} aria-label={`Delete ${row.name || row.code || ""}`} onClick={() => remove(row)} />}
+                    <RowActions name={row.name || row.code || ""} extra={rowActions?.(row, list.reload)}
+                      onEdit={canEdit && editable(row) ? () => setEditing(row) : undefined}
+                      onDelete={canDelete && editable(row) ? () => setRemoving(row) : undefined} />
                   </td>
                 </tr>
               ))}
@@ -56,6 +53,12 @@ export function CrudCard({
       {editing && (
         <RecordForm title={`${editing.id ? "Edit" : newLabel} · ${title}`} path={path} record={editing} fields={fields}
           toBody={toBody} onClose={() => setEditing(null)} onDone={done} />
+      )}
+      {removing && (
+        <ConfirmDelete title={`Delete · ${title}`} onConfirm={(reason) => api.delete(`${path}${removing.id}/`, { reason })}
+          onClose={(deleted) => { setRemoving(null); if (deleted) { act.say("Deleted."); list.reload(); onChanged?.(); } }}>
+          {deleteConfirm(removing)}
+        </ConfirmDelete>
       )}
     </Card>
   );
