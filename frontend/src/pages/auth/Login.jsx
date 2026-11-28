@@ -4,6 +4,9 @@ import { LuLogIn, LuEye, LuEyeOff } from "react-icons/lu";
 import { useAuth } from "../../auth/AuthContext";
 import { homePathForUser, ROLE_LABELS } from "../../config/roles";
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from "../../config/demoAccounts";
+
+// The demo sign-in buttons are hidden unless a build asks for them (VITE_SHOW_DEMO_ACCOUNTS=true).
+const SHOW_DEMO_ACCOUNTS = import.meta.env.VITE_SHOW_DEMO_ACCOUNTS === "true";
 import { Alert, Button, Field } from "../../components/ui";
 import AuthLayout from "./AuthLayout";
 
@@ -82,6 +85,7 @@ export default function Login() {
 
         <p className="auth__apply">New applicant? <Link to="/apply">Apply online to a school or university</Link></p>
 
+        {SHOW_DEMO_ACCOUNTS && (
         <div className="demo-box" aria-label="Demo accounts">
           <div className="demo-box__title">Demo accounts · password <span className="mono">{DEMO_PASSWORD}</span></div>
           {DEMO_ACCOUNTS.map((g) => (
@@ -98,6 +102,7 @@ export default function Login() {
             </div>
           ))}
         </div>
+        )}
       </form>
     </AuthLayout>
   );
